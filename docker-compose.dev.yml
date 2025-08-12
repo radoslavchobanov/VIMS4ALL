@@ -1,0 +1,77 @@
+x-healthcheck-postgres: &health_pg
+  test:
+    ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost"]
+  interval: 5s
+  timeout: 3s
+  retries: 20
+
+x-healthcheck-minio: &health_minio
+  test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+  interval: 5s
+  timeout: 3s
+  retries: 30
+
+services:
+  db:
+    image: postgres:16
+    env_file: [.env.dev]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${DEV_PG_PORT:-5423}:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck: *health_pg
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    env_file: [.env.dev]
+    ports:
+      - "${DEV_MINIO_API_PORT:-9000}:9000"
+      - "${DEV_MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_dev:/data
+    healthcheck: *health_minio
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file: [.env.dev]
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+       mc mb -p local/${MINIO_MEDIA_BUCKET} || true &&
+       mc anonymous set download local/${MINIO_MEDIA_BUCKET} || true &&
+       echo 'Buckets ready'"
+
+  web:
+    build:
+      context: .
+    command: ["/bin/bash", "/app/docker/entrypoint.dev.sh"]
+    env_file: [.env.dev]
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /app/src
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    ports:
+      - "${DEV_DJANGO_PORT:-8000}:8000"
+
+volumes:
+  pgdata_dev:
+  minio_dev:

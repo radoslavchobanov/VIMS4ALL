@@ -1,0 +1,74 @@
+# ---- Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.orig
+*.log
+*.pot
+*.mo
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- Django
+# Local DBs (if you ever spin sqlite)
+db.sqlite3
+*.sqlite3
+
+# Static & media outputs (collected/generated locally)
+staticfiles/
+static/
+media/
+
+# Migrations you want to keep — do NOT ignore app migrations
+# (leave empty here intentionally)
+
+# ---- Tests & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.cache/
+.tox/
+.nox/
+
+# Linters/formatters
+.mypy_cache/
+.pytype/
+.ruff_cache/
+.pyre/
+
+# ---- Env & secrets
+.env
+.env.*
+!.env.example
+
+# ---- Editor / IDE
+# VS Code: ignore everything except useful project settings we want in repo
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+
+# ---- OS cruft
+.DS_Store
+Thumbs.db
+
+# ---- Docker
+# named volumes are external; if you ever bind to local folders, ignore them here
+docker/*.pid
