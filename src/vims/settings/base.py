@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.institutes",
     "apps.common",
+    "apps.students",
 ]
 
 MIDDLEWARE = [
@@ -46,6 +47,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # your tenancy middleware can go here later
+    "apps.common.middleware.InstituteContextMiddleware",
 ]
 
 ROOT_URLCONF = "vims.urls"
@@ -95,8 +97,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- DRF / schema (optional but useful) ---
 REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "VIMS API",

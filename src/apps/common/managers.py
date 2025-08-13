@@ -1,19 +1,19 @@
 from django.db import models
-from .middleware import get_current_institute
+from .middleware import get_current_institute_id
 
 
 class InstituteScopedQuerySet(models.QuerySet):
     def for_current_institute(self):
-        inst = get_current_institute()
-        if inst is None:
-            return self.none()
-        return self.filter(institute=inst)
+        iid = get_current_institute_id()
+        return self.filter(institute_id=iid) if iid is not None else self.none()
 
 
 class InstituteScopedManager(models.Manager):
     def get_queryset(self):
         qs = super().get_queryset()
-        inst = get_current_institute()
-        if inst is None:
-            return qs.none()
-        return qs.filter(institute=inst)
+        iid = get_current_institute_id()
+        return qs.filter(institute_id=iid) if iid is not None else qs.none()
+
+    # convenience for admin/shell
+    def all_institutes(self):
+        return super().get_queryset()

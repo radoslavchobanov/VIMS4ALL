@@ -5,18 +5,20 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # OpenAPI schema (JSON)
+    # JWT
+    path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    # OpenAPI
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    # Swagger UI (like FastAPI /docs)
     path(
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
-    # ReDoc (like FastAPI /redoc)
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    # your app routes
+    path("api/", include("apps.students.urls")),
 ]
