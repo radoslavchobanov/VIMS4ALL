@@ -56,6 +56,9 @@ class StudentCustodianViewSet(ScopedModelViewSet):
     model = StudentCustodian
     serializer_class = StudentCustodianSerializer
 
+    def perform_create(self, serializer):
+        serializer.save(institute_id=self.request.user.institute_id)
+
 
 class StudentStatusViewSet(ScopedModelViewSet):
     model = StudentStatus

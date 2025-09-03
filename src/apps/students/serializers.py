@@ -46,12 +46,35 @@ class TermSerializer(serializers.ModelSerializer):
 
 
 class StudentCustodianSerializer(serializers.ModelSerializer):
+    # bind a safe default; we’ll override per-request
+    student = serializers.PrimaryKeyRelatedField(queryset=Student.all_objects.none())
+
     class Meta:
         model = StudentCustodian
         fields = ["id", "student", "full_name", "relation", "phone", "email"]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set queryset at REQUEST time to avoid early evaluation
+        req = self.context.get("request")
+        if req and getattr(req.user, "institute_id", None):
+            self.fields["student"].queryset = Student.all_objects.filter(
+                institute_id=req.user.institute_id
+            )
+
+    def validate(self, attrs):
+        # Optional: require at least one contact method
+        if not attrs.get("phone") and not attrs.get("email"):
+            raise serializers.ValidationError("Provide at least phone or email.")
+        return attrs
+
 
 class StudentStatusSerializer(serializers.ModelSerializer):
+    student = serializers.PrimaryKeyRelatedField(queryset=Student.all_objects.none())
+    term = serializers.PrimaryKeyRelatedField(
+        queryset=Term.all_objects.none(), allow_null=True, required=False
+    )
+
     class Meta:
         model = StudentStatus
         fields = [
@@ -63,4 +86,14 @@ class StudentStatusSerializer(serializers.ModelSerializer):
             "note",
             "effective_at",
         ]
-        read_only_fields = ["is_active"]  # is_active toggled by service below
+        read_only_fields = ["is_active"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        req = self.context.get("request")
+        if req and getattr(req.user, "institute_id", None):
+            iid = req.user.institute_id
+            self.fields["student"].queryset = Student.all_objects.filter(
+                institute_id=iid
+            )
+            self.fields["term"].queryset = Term.all_objects.filter(institute_id=iid)
