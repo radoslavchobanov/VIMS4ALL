@@ -12,7 +12,7 @@ env = environ.Env(
 )
 
 # Load .env if present
-environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+environ.Env.read_env(os.path.join(BASE_DIR, ".env.dev"))
 
 DEBUG = env("DJANGO_DEBUG")
 SECRET_KEY = env("DJANGO_SECRET_KEY") or "dev-insecure"

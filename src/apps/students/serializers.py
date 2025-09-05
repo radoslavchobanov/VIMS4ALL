@@ -1,8 +1,10 @@
 # src/apps/students/serializers.py
 from rest_framework import serializers
-from .models import Student, StudentCustodian, StudentStatus, Term
+from .models import Status, Student, StudentCustodian, StudentStatus, Term
 from .services.spin import generate_spin
 from .services.photos import ensure_student_photo_or_default
+from .services.terms import get_nearest_term
+from .services.dedup import has_potential_duplicate
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -22,20 +24,46 @@ class StudentSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context["request"]
         user = request.user
-        if not getattr(user, "institute_id", None):
+        iid = getattr(user, "institute_id", None)
+        if not iid:
             raise serializers.ValidationError("User has no institute assigned.")
-        validated_data["institute_id"] = user.institute_id
+
+        # 1) duplicate guard (<= active)
+        if has_potential_duplicate(
+            iid,
+            validated_data["first_name"],
+            validated_data["last_name"],
+            validated_data["date_of_birth"],
+        ):
+            raise serializers.ValidationError(
+                "A student with the same name and birth date already exists (status ≤ active)."
+            )
+
+        # 2) SPIN
+        validated_data["institute_id"] = iid
         validated_data["spin"] = generate_spin(
-            user.institute_id,
+            iid,
             validated_data["first_name"],
             validated_data["last_name"],
             validated_data["date_of_birth"],
         )
         student = super().create(validated_data)
-        # default photo handling
+
+        # 3) set default photo (institute logo fallback)
         ensure_student_photo_or_default(
             student, getattr(user.institute, "logo_key", None)
         )
+
+        # 4) initial status = ENQUIRE with nearest term; is_active True (→ TermActiveID = 0)
+        term = get_nearest_term(iid)
+        StudentStatus.objects.create(
+            institute_id=iid,
+            student=student,
+            status=Status.ENQUIRE,
+            term=term,
+            is_active=True,
+        )
+
         return student
 
 
@@ -43,6 +71,14 @@ class TermSerializer(serializers.ModelSerializer):
     class Meta:
         model = Term
         fields = ["id", "name", "start_date", "end_date"]
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        user = request.user
+        if not getattr(user, "institute_id", None):
+            raise serializers.ValidationError("User has no institute assigned.")
+        validated_data["institute_id"] = user.institute_id
+        return super().create(validated_data)
 
 
 class StudentCustodianSerializer(serializers.ModelSerializer):

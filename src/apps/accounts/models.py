@@ -12,6 +12,7 @@ class User(AbstractUser):
         related_name="users",
     )
 
-    class Meta:
-        verbose_name = "User"
-        verbose_name_plural = "Users"
+    # convenience property
+    @property
+    def is_institute_admin(self) -> bool:
+        return self.groups.filter(name="institute_admin").exists()

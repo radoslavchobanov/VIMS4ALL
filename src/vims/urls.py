@@ -20,5 +20,6 @@ urlpatterns = [
         name="swagger-ui",
     ),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    path("api/", include("apps.students.urls")),
+    # API router (all endpoints in one place)
+    path("api/", include("vims.api_router")),
 ]

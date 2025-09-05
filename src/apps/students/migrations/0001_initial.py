@@ -4,29 +4,72 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def seed_admin(apps, schema_editor):
+    """
+    Ensure an initial admin user exists with username=admin / password=admin.
+    """
+    User = apps.get_model("accounts", "User")
+    if not User.objects.filter(username="admin").exists():
+        User.objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="admin",
+        )
+
+
 class Migration(migrations.Migration):
 
     initial = True
 
     dependencies = [
-        ('institutes', '0001_initial'),
+        ("institutes", "0001_initial"),
+        ("auth", "__first__"),  # ensure auth tables exist before we insert
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Student',
+            name="Student",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('first_name', models.CharField(max_length=120)),
-                ('last_name', models.CharField(max_length=120)),
-                ('date_of_birth', models.DateField()),
-                ('spin', models.CharField(max_length=32, unique=True)),
-                ('photo', models.ImageField(blank=True, null=True, upload_to='students/')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('institute', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)ss', to='institutes.institute')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("first_name", models.CharField(max_length=120)),
+                ("last_name", models.CharField(max_length=120)),
+                ("date_of_birth", models.DateField()),
+                ("spin", models.CharField(max_length=32, unique=True)),
+                (
+                    "photo",
+                    models.ImageField(blank=True, null=True, upload_to="students/"),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "institute",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="%(class)ss",
+                        to="institutes.institute",
+                    ),
+                ),
             ],
             options={
-                'constraints': [models.UniqueConstraint(fields=('institute', 'first_name', 'last_name', 'date_of_birth'), name='uq_student_person_like')],
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=(
+                            "institute",
+                            "first_name",
+                            "last_name",
+                            "date_of_birth",
+                        ),
+                        name="uq_student_person_like",
+                    )
+                ],
             },
         ),
+        migrations.RunPython(seed_admin, reverse_code=migrations.RunPython.noop),
     ]
