@@ -1,13 +1,20 @@
+# apps/students/views.py
+from pathlib import Path
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import action
+from drf_spectacular.utils import extend_schema
 
 from .models import Student, StudentCustodian, StudentStatus, Term
 from .serializers import (
-    StudentSerializer,
+    PhotoUploadResponseSerializer,
+    StudentPhotoUploadSerializer,
+    StudentReadSerializer,
     StudentCustodianSerializer,
     StudentStatusSerializer,
+    StudentWriteSerializer,
     TermSerializer,
 )
 from .permissions import HasInstitute
@@ -15,49 +22,99 @@ from .permissions import HasInstitute
 
 class ScopedModelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, HasInstitute]
+    model = None
+
+    def get_institute_id(self):
+        return getattr(self.request.user, "institute_id", None)
 
     def get_queryset(self):
-        """
-        Always resolve the queryset at request time so that the
-        InstituteScopedManager sees the current institute from middleware.
-        """
-        if hasattr(self, "model"):
-            return self.model.objects.all()
-        return super().get_queryset()
+        iid = self.get_institute_id()
+        qs = self.model.all_objects
+        return qs.filter(institute_id=iid) if iid else qs.none()
+
+    def perform_create(self, serializer):
+        serializer.save(institute_id=self.get_institute_id())
 
 
 class StudentViewSet(ScopedModelViewSet):
     model = Student
-    serializer_class = StudentSerializer
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return StudentWriteSerializer
+        return StudentReadSerializer
+
+
+class StudentViewSet(ScopedModelViewSet):
+    model = Student
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return StudentWriteSerializer
+        return StudentReadSerializer
+
+    @extend_schema(
+        request=StudentPhotoUploadSerializer,
+        responses={200: PhotoUploadResponseSerializer},
+        summary="Upload/replace student photo (multipart/form-data)",
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="photo",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def upload_photo(self, request, pk=None):
+        student = self.get_object()
+        ser = StudentPhotoUploadSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+
+        file = ser.validated_data["photo"]
+        ext = Path(file.name).suffix.lower()
+        if ext in (".jpeg", ""):
+            ext = ".jpg"
+        if ext not in (".jpg", ".png", ".webp"):
+            return Response({"detail": "Unsupported file type"}, status=400)
+
+        # Delete previous object (MinIO) if any
+        if student.photo:
+            student.photo.delete(save=False)
+
+        # Deterministic object key under the bucket
+        object_key = f"{student.spin}{ext}"
+
+        # Save via Django storage (configured to MinIO below)
+        student.photo.save(object_key, file, save=True)
+
+        return Response({"photo_url": getattr(student.photo, "url", None)}, status=200)
 
     @action(detail=False, methods=["get"], url_path="dedup")
     def dedup(self, request):
-        # /api/students/dedup?first_name=...&last_name=...&date_of_birth=YYYY-MM-DD
+        # unchanged from earlier, now using service internally
         first = request.query_params.get("first_name", "").strip()
         last = request.query_params.get("last_name", "").strip()
         dob = request.query_params.get("date_of_birth", "").strip()
         if not (first and last and dob):
             return Response(
                 {"detail": "first_name, last_name, date_of_birth are required."},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=400,
             )
-        exists = Student.objects.filter(
-            first_name__iexact=first, last_name__iexact=last, date_of_birth=dob
-        ).exists()
+        from .services.dedup import has_potential_duplicate
+
+        exists = has_potential_duplicate(self.get_institute_id(), first, last, dob)
         return Response({"duplicate": exists})
 
 
 class TermViewSet(ScopedModelViewSet):
     model = Term
     serializer_class = TermSerializer
+    # perform_create inherited sets institute_id
 
 
 class StudentCustodianViewSet(ScopedModelViewSet):
     model = StudentCustodian
     serializer_class = StudentCustodianSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(institute_id=self.request.user.institute_id)
+    # perform_create inherited sets institute_id
 
 
 class StudentStatusViewSet(ScopedModelViewSet):
@@ -65,9 +122,10 @@ class StudentStatusViewSet(ScopedModelViewSet):
     serializer_class = StudentStatusSerializer
 
     def perform_create(self, serializer):
-        # mark previous statuses inactive, new one active
+        # Deactivate previous active; set institute_id on new row
+        iid = self.get_institute_id()
         student = serializer.validated_data["student"]
-        StudentStatus.objects.filter(student=student, is_active=True).update(
+        StudentStatus.all_objects.filter(student=student, is_active=True).update(
             is_active=False
         )
-        serializer.save(is_active=True, institute_id=self.request.user.institute_id)
+        serializer.save(is_active=True, institute_id=iid)

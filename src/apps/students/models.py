@@ -18,42 +18,41 @@ class Student(InstituteScopedModel):
         DIVORCED = "divorced", "Divorced"
         WIDOWED = "widowed", "Widowed"
 
-    # Identity
+    # mandatory
     first_name = models.CharField(max_length=120)
     last_name = models.CharField(max_length=120)
     date_of_birth = models.DateField()
-    gender = models.CharField(max_length=12, choices=Gender.choices, blank=True)
-    spin = models.CharField(max_length=32, unique=True)  # generated id
-    photo = models.ImageField(upload_to="students/", blank=True, null=True)
 
-    # Contact & civil
-    marital_status = models.CharField(
-        max_length=12, choices=MaritalStatus.choices, blank=True
+    # identifiers/media
+    spin = models.CharField(max_length=32, unique=True)
+    photo = models.ImageField(upload_to="students/", null=True, blank=True)
+
+    # OPTIONAL fields -> null/blank allowed
+    gender = models.CharField(
+        max_length=12, choices=Gender.choices, null=True, blank=True
     )
-    phone_number = models.CharField(max_length=40, blank=True)
-    email = models.EmailField(blank=True)
+    marital_status = models.CharField(
+        max_length=12, choices=MaritalStatus.choices, null=True, blank=True
+    )
+    phone_number = models.CharField(max_length=40, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
 
-    # National info & IDs
-    nationality = models.CharField(max_length=60, blank=True)  # e.g. "Uganda"
-    national_id = models.CharField(max_length=64, blank=True)  # gov't ID
+    nationality = models.CharField(max_length=60, null=True, blank=True)
+    national_id = models.CharField(max_length=64, null=True, blank=True)
 
-    # Education history
-    previous_institute = models.CharField(max_length=160, blank=True)
-    grade_acquired = models.CharField(max_length=60, blank=True)  # e.g. "Div 2"
+    previous_institute = models.CharField(max_length=160, null=True, blank=True)
+    grade_acquired = models.CharField(max_length=60, null=True, blank=True)
 
-    # Address / locality (kept flat for MVP)
-    district = models.CharField(max_length=120, blank=True)
-    county = models.CharField(max_length=120, blank=True)
-    sub_county_division = models.CharField(max_length=120, blank=True)
-    parish = models.CharField(max_length=120, blank=True)
-    cell_village = models.CharField(max_length=120, blank=True)
+    district = models.CharField(max_length=120, null=True, blank=True)
+    county = models.CharField(max_length=120, null=True, blank=True)
+    sub_county_division = models.CharField(max_length=120, null=True, blank=True)
+    parish = models.CharField(max_length=120, null=True, blank=True)
+    cell_village = models.CharField(max_length=120, null=True, blank=True)
 
-    # Lifecycle
     entry_date = models.DateField(null=True, blank=True)
     exit_date = models.DateField(null=True, blank=True)
 
-    # Notes
-    comments = models.TextField(blank=True)
+    comments = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -69,19 +68,17 @@ class Student(InstituteScopedModel):
             models.Index(fields=["spin"]),
         ]
 
-    def __str__(self):
-        return f"{self.first_name} {self.last_name} ({self.spin})"
-
     def clean(self):
-        # Simple chronology guards
+        from django.core.exceptions import ValidationError
+
         if self.exit_date and self.entry_date and self.exit_date < self.entry_date:
-            raise serializers.ValidationError("Exit date must be on/after entry date.")
+            raise ValidationError("Exit date must be on/after entry date.")
         if (
             self.entry_date
             and self.date_of_birth
             and self.entry_date <= self.date_of_birth
         ):
-            raise serializers.ValidationError("Entry date must be after date of birth.")
+            raise ValidationError("Entry date must be after date of birth.")
 
 
 class Term(InstituteScopedModel):

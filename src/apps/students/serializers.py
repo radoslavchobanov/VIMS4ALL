@@ -7,7 +7,9 @@ from .services.terms import get_nearest_term
 from .services.dedup import has_potential_duplicate
 
 
-class StudentSerializer(serializers.ModelSerializer):
+class StudentReadSerializer(serializers.ModelSerializer):
+    photo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Student
         fields = [
@@ -15,11 +17,45 @@ class StudentSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "date_of_birth",
+            "gender",
+            "spin",
+            "photo_url",
+            "marital_status",
+            "phone_number",
+            "email",
+            "nationality",
+            "national_id",
+            "previous_institute",
+            "grade_acquired",
+            "district",
+            "county",
+            "sub_county_division",
+            "parish",
+            "cell_village",
+            "entry_date",
+            "exit_date",
+            "comments",
+            "created_at",
+        ]
+        read_only_fields = ["spin", "created_at", "photo_url"]
+
+    def get_photo_url(self, obj):
+        f = getattr(obj, "photo", None)
+        return getattr(f, "url", None) if f else None
+
+
+class StudentWriteSerializer(serializers.ModelSerializer):
+    """Create/Update accepts ALL fields (except photo). Only 3 are mandatory by model."""
+
+    class Meta:
+        model = Student
+        exclude = [
+            "id",
             "spin",
             "photo",
             "created_at",
-        ]
-        read_only_fields = ["spin", "created_at"]
+            "institute",
+        ]  # institute & spin are set server-side
 
     def create(self, validated_data):
         request = self.context["request"]
@@ -28,7 +64,12 @@ class StudentSerializer(serializers.ModelSerializer):
         if not iid:
             raise serializers.ValidationError("User has no institute assigned.")
 
-        # 1) duplicate guard (<= active)
+        # Ensure mandatory are present (model enforces it anyway, but be explicit)
+        for f in ("first_name", "last_name", "date_of_birth"):
+            if not validated_data.get(f):
+                raise serializers.ValidationError({f: "This field is required."})
+
+        # Duplicate guard (≤ ACTIVE)
         if has_potential_duplicate(
             iid,
             validated_data["first_name"],
@@ -39,7 +80,6 @@ class StudentSerializer(serializers.ModelSerializer):
                 "A student with the same name and birth date already exists (status ≤ active)."
             )
 
-        # 2) SPIN
         validated_data["institute_id"] = iid
         validated_data["spin"] = generate_spin(
             iid,
@@ -47,14 +87,13 @@ class StudentSerializer(serializers.ModelSerializer):
             validated_data["last_name"],
             validated_data["date_of_birth"],
         )
+
         student = super().create(validated_data)
 
-        # 3) set default photo (institute logo fallback)
-        ensure_student_photo_or_default(
-            student, getattr(user.institute, "logo_key", None)
-        )
+        # TODO default photo (institute logo) ; add "getattr(user.institute, "logo_key", None)" when having institute logo
+        ensure_student_photo_or_default(student, None)
 
-        # 4) initial status = ENQUIRE with nearest term; is_active True (→ TermActiveID = 0)
+        # initial status = ENQUIRE (+ nearest term)
         term = get_nearest_term(iid)
         StudentStatus.objects.create(
             institute_id=iid,
@@ -63,8 +102,15 @@ class StudentSerializer(serializers.ModelSerializer):
             term=term,
             is_active=True,
         )
-
         return student
+
+
+class StudentPhotoUploadSerializer(serializers.Serializer):
+    photo = serializers.ImageField()
+
+
+class PhotoUploadResponseSerializer(serializers.Serializer):
+    photo_url = serializers.URLField()
 
 
 class TermSerializer(serializers.ModelSerializer):
