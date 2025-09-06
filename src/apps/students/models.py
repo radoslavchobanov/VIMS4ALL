@@ -64,8 +64,11 @@ class Student(InstituteScopedModel):
             )
         ]
         indexes = [
-            models.Index(fields=["institute", "last_name", "first_name"]),
-            models.Index(fields=["spin"]),
+            models.Index(
+                fields=["institute", "last_name", "first_name"],
+                name="stu_inst_last_first_idx",
+            ),
+            models.Index(fields=["spin"], name="stu_spin_idx"),
         ]
 
     def clean(self):
@@ -95,19 +98,56 @@ class Term(InstituteScopedModel):
 
 
 class StudentCustodian(InstituteScopedModel):
+    class Gender(models.TextChoices):
+        MALE = "male", "Male"
+        FEMALE = "female", "Female"
+        OTHER = "other", "Other/Unspecified"
+
+    class Relationship(models.TextChoices):
+        PARENT = "parent", "Parent"
+        GUARDIAN = "guardian", "Guardian"
+        SPONSOR = "sponsor", "Sponsor"
+
     student = models.ForeignKey(
         "students.Student", on_delete=models.CASCADE, related_name="custodians"
     )
-    full_name = models.CharField(max_length=160)
-    relation = models.CharField(max_length=60)  # e.g. Mother, Father, Guardian
-    phone = models.CharField(max_length=40, blank=True)
-    email = models.EmailField(blank=True)
+
+    first_name = models.CharField(max_length=80)
+    last_name = models.CharField(max_length=80)
+    gender = models.CharField(
+        max_length=12, choices=Gender.choices, null=True, blank=True
+    )
+
+    relation = models.CharField(max_length=20, choices=Relationship.choices)
+
+    phone_number_1 = models.CharField(max_length=40, null=True, blank=True)
+    phone_number_2 = models.CharField(max_length=40, null=True, blank=True)
+    place_of_work = models.CharField(max_length=160, null=True, blank=True)
+
+    nationality = models.CharField(max_length=60, null=True, blank=True)
+    country = models.CharField(max_length=120, null=True, blank=True)
+    sub_country = models.CharField(max_length=120, null=True, blank=True)
+
+    parish = models.CharField(max_length=120, null=True, blank=True)
+    cell = models.CharField(max_length=120, null=True, blank=True)
+
+    comments = models.TextField(null=True, blank=True)
 
     class Meta:
-        indexes = [models.Index(fields=["student", "relation"])]
+        ordering = ["last_name", "first_name", "id"]
+        indexes = [
+            models.Index(
+                fields=["student", "relation"],
+                name="cust_student_relation_idx",
+            ),
+            models.Index(
+                fields=["last_name", "first_name"],
+                name="cust_last_first_idx",
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.full_name} ({self.relation})"
+        return f"{self.first_name} {self.last_name} ({self.get_relation_display()})"
 
 
 class Status(models.TextChoices):
@@ -175,8 +215,13 @@ class StudentStatus(InstituteScopedModel):
     effective_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        indexes = [models.Index(fields=["student", "-effective_at"])]
         ordering = ["-effective_at", "-id"]
+        indexes = [
+            models.Index(
+                fields=["student", "-effective_at"],
+                name="status_student_eff_idx",
+            ),
+        ]
         # one *active* status row per student, per institute
         constraints = [
             models.UniqueConstraint(

@@ -24,7 +24,21 @@ class TermAdmin(admin.ModelAdmin):
 
 @admin.register(StudentCustodian)
 class StudentCustodianAdmin(admin.ModelAdmin):
-    list_display = ("full_name", "relation", "student", "institute")
+    list_display = (
+        "id",
+        "student",
+        "last_name",
+        "first_name",
+        "relation",
+        "phone_number_1",
+    )
+    list_filter = ("relation", "gender")
+    search_fields = (
+        "first_name",
+        "last_name",
+        "student__first_name",
+        "student__last_name",
+    )
 
 
 @admin.register(StudentStatus)

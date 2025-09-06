@@ -128,16 +128,44 @@ class TermSerializer(serializers.ModelSerializer):
 
 
 class StudentCustodianSerializer(serializers.ModelSerializer):
-    # bind a safe default; we’ll override per-request
     student = serializers.PrimaryKeyRelatedField(queryset=Student.all_objects.none())
 
     class Meta:
         model = StudentCustodian
-        fields = ["id", "student", "full_name", "relation", "phone", "email"]
+        fields = [
+            "id",
+            "student",
+            "first_name",
+            "last_name",
+            "gender",
+            "relation",
+            "phone_number_1",
+            "phone_number_2",
+            "place_of_work",
+            "nationality",
+            "country",
+            "sub_country",
+            "parish",
+            "cell",
+            "comments",
+        ]
+        # Only these 4 are mandatory; model already enforces first_name/last_name/relation not null
+        extra_kwargs = {
+            "gender": {"required": False, "allow_null": True},
+            "phone_number_1": {"required": False, "allow_null": True},
+            "phone_number_2": {"required": False, "allow_null": True},
+            "place_of_work": {"required": False, "allow_null": True},
+            "nationality": {"required": False, "allow_null": True},
+            "country": {"required": False, "allow_null": True},
+            "sub_country": {"required": False, "allow_null": True},
+            "parish": {"required": False, "allow_null": True},
+            "cell": {"required": False, "allow_null": True},
+            "comments": {"required": False, "allow_null": True},
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Set queryset at REQUEST time to avoid early evaluation
+        # scope 'student' to the caller's institute
         req = self.context.get("request")
         if req and getattr(req.user, "institute_id", None):
             self.fields["student"].queryset = Student.all_objects.filter(
@@ -145,10 +173,25 @@ class StudentCustodianSerializer(serializers.ModelSerializer):
             )
 
     def validate(self, attrs):
-        # Optional: require at least one contact method
-        if not attrs.get("phone") and not attrs.get("email"):
-            raise serializers.ValidationError("Provide at least phone or email.")
+        # tenant safety: the selected student must belong to the caller’s institute
+        req = self.context.get("request")
+        if req and getattr(req.user, "institute_id", None):
+            st = attrs.get("student") or getattr(self.instance, "student", None)
+            if st and st.institute_id != req.user.institute_id:
+                raise serializers.ValidationError("Student not in your institute.")
         return attrs
+
+    # make 'relation' tolerant to case/wording like "PARENTS"/"Mother"
+    def validate_relation(self, value: str):
+        v = (value or "").strip().lower()
+        if v in {"parent", "parents", "mother", "father", "mum", "mom", "dad"}:
+            return StudentCustodian.Relationship.PARENT
+        if v in {"guardian", "guard", "caregiver", "relative"}:
+            return StudentCustodian.Relationship.GUARDIAN
+        if v in {"sponsor", "sponsorship", "donor"}:
+            return StudentCustodian.Relationship.SPONSOR
+        # Let DRF raise the choices error if it’s something else
+        return value
 
 
 class StudentStatusSerializer(serializers.ModelSerializer):
