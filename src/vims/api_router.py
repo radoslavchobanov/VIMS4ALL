@@ -2,7 +2,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.students.views import (
     StudentViewSet,
-    TermViewSet,
+    AcademicTermViewSet,
     StudentCustodianViewSet,
     StudentStatusViewSet,
 )
@@ -12,6 +12,12 @@ from apps.employees.views import (
     EmployeeCareerViewSet,
     EmployeeDependentViewSet,
 )
+from apps.courses.views import (
+    CourseViewSet,
+    CourseClassViewSet,
+    CourseInstructorViewSet,
+)
+
 from apps.institutes.views import InstituteAdminViewSet
 from apps.accounts.views import AccountAdminViewSet
 
@@ -24,7 +30,7 @@ router.register(r"admin/accounts", AccountAdminViewSet, basename="admin-accounts
 
 # STUDENT ENDPOINTS
 router.register(r"students", StudentViewSet, basename="students")
-router.register(r"terms", TermViewSet, basename="terms")
+router.register(r"academic-terms", AcademicTermViewSet, basename="academic-terms")
 router.register(
     r"student-custodians", StudentCustodianViewSet, basename="student-custodians"
 )
@@ -38,6 +44,13 @@ router.register(
 router.register(r"employee-careers", EmployeeCareerViewSet, basename="employee-careers")
 router.register(
     r"employee-dependents", EmployeeDependentViewSet, basename="employee-dependents"
+)
+
+# COURSE ENDPOINTS
+router.register(r"courses", CourseViewSet, basename="courses")
+router.register(r"course-classes", CourseClassViewSet, basename="course-classes")
+router.register(
+    r"course-instructors", CourseInstructorViewSet, basename="course-instructors"
 )
 
 urlpatterns = router.urls

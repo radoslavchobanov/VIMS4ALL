@@ -1,14 +1,13 @@
-# src/apps/students/services/terms.py
 from __future__ import annotations
 from datetime import date
 from typing import Optional
 from django.db.models import Q
-from apps.students.models import Term
+from apps.students.models import AcademicTerm
 
 
 def get_nearest_term(
     institute_id: int, ref_date: Optional[date] = None
-) -> Optional[Term]:
+) -> Optional[AcademicTerm]:
     """
     Returns the term closest to ref_date for the given institute.
     Preference order:
@@ -18,7 +17,7 @@ def get_nearest_term(
     """
     ref_date = ref_date or date.today()
 
-    qs = Term.all_objects.filter(institute_id=institute_id)
+    qs = AcademicTerm.all_objects.filter(institute_id=institute_id)
 
     # a) term covering ref_date
     current = (

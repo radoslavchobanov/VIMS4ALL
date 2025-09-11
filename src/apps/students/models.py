@@ -84,17 +84,29 @@ class Student(InstituteScopedModel):
             raise ValidationError("Entry date must be after date of birth.")
 
 
-class Term(InstituteScopedModel):
+class AcademicTerm(InstituteScopedModel):
     name = models.CharField(max_length=120)
     start_date = models.DateField()
     end_date = models.DateField()
+    is_closed = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ("institute", "name")
         ordering = ["-start_date"]
 
-    def __str__(self):
-        return f"{self.name}"
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.end_date < self.start_date:
+            raise ValidationError("end_date must be on/after start_date.")
+        # Business rule: prevent overlapping active terms (optional but recommended)
+        qs = (
+            AcademicTerm.objects.filter(institute=self.institute)
+            .exclude(pk=self.pk)
+            .filter(start_date__lte=self.end_date, end_date__gte=self.start_date)
+        )
+        if qs.exists():
+            raise ValidationError("Term dates overlap with an existing term.")
 
 
 class StudentCustodian(InstituteScopedModel):
@@ -208,7 +220,10 @@ class StudentStatus(InstituteScopedModel):
     )
     status = models.CharField(max_length=20, choices=Status.choices)
     term = models.ForeignKey(
-        "students.Term", null=True, blank=True, on_delete=models.SET_NULL
+        "students.AcademicTerm", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    course_class = models.ForeignKey(
+        "courses.CourseClass", null=True, blank=True, on_delete=models.SET_NULL
     )
     is_active = models.BooleanField(default=True)
     note = models.TextField(blank=True)
@@ -218,9 +233,10 @@ class StudentStatus(InstituteScopedModel):
         ordering = ["-effective_at", "-id"]
         indexes = [
             models.Index(
-                fields=["student", "-effective_at"],
-                name="status_student_eff_idx",
+                fields=["student", "-effective_at"], name="status_student_eff_idx"
             ),
+            models.Index(fields=["term"], name="status_term_idx"),
+            models.Index(fields=["course_class"], name="status_class_idx"),
         ]
         # one *active* status row per student, per institute
         constraints = [

@@ -1,6 +1,5 @@
-# src/apps/students/serializers.py
 from rest_framework import serializers
-from .models import Status, Student, StudentCustodian, StudentStatus, Term
+from .models import Status, Student, StudentCustodian, StudentStatus, AcademicTerm
 from .services.spin import generate_spin
 from .services.photos import ensure_student_photo_or_default
 from .services.terms import get_nearest_term
@@ -113,9 +112,9 @@ class PhotoUploadResponseSerializer(serializers.Serializer):
     photo_url = serializers.URLField()
 
 
-class TermSerializer(serializers.ModelSerializer):
+class AcademicTermSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Term
+        model = AcademicTerm
         fields = ["id", "name", "start_date", "end_date"]
 
     def create(self, validated_data):
@@ -190,14 +189,13 @@ class StudentCustodianSerializer(serializers.ModelSerializer):
             return StudentCustodian.Relationship.GUARDIAN
         if v in {"sponsor", "sponsorship", "donor"}:
             return StudentCustodian.Relationship.SPONSOR
-        # Let DRF raise the choices error if it’s something else
         return value
 
 
 class StudentStatusSerializer(serializers.ModelSerializer):
     student = serializers.PrimaryKeyRelatedField(queryset=Student.all_objects.none())
     term = serializers.PrimaryKeyRelatedField(
-        queryset=Term.all_objects.none(), allow_null=True, required=False
+        queryset=AcademicTerm.all_objects.none(), allow_null=True, required=False
     )
 
     class Meta:
@@ -221,4 +219,6 @@ class StudentStatusSerializer(serializers.ModelSerializer):
             self.fields["student"].queryset = Student.all_objects.filter(
                 institute_id=iid
             )
-            self.fields["term"].queryset = Term.all_objects.filter(institute_id=iid)
+            self.fields["term"].queryset = AcademicTerm.all_objects.filter(
+                institute_id=iid
+            )

@@ -7,7 +7,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 
-from .models import Student, StudentCustodian, StudentStatus, Term
+from .models import Student, StudentCustodian, StudentStatus, AcademicTerm
 from .serializers import (
     PhotoUploadResponseSerializer,
     StudentPhotoUploadSerializer,
@@ -15,7 +15,7 @@ from .serializers import (
     StudentCustodianSerializer,
     StudentStatusSerializer,
     StudentWriteSerializer,
-    TermSerializer,
+    AcademicTermSerializer,
 )
 from .permissions import HasInstitute
 
@@ -104,10 +104,43 @@ class StudentViewSet(ScopedModelViewSet):
         exists = has_potential_duplicate(self.get_institute_id(), first, last, dob)
         return Response({"duplicate": exists})
 
+    @action(detail=True, methods=["get"], url_path="offered-classes")
+    def offered_classes(self, request, pk=None):
+        """
+        List classes that currently have >=1 instructor linked.
+        Sorted by course name, class number.
+        """
+        from apps.courses.models import CourseClass, CourseInstructor
 
-class TermViewSet(ScopedModelViewSet):
-    model = Term
-    serializer_class = TermSerializer
+        iid = self.get_institute_id()
+
+        cls_ids = (
+            CourseInstructor.all_objects.filter(institute_id=iid)
+            .values_list("course_class_id", flat=True)
+            .distinct()
+        )
+
+        qs = CourseClass.all_objects.filter(
+            institute_id=iid, id__in=cls_ids
+        ).select_related("course")
+        data = [
+            {
+                "id": cc.id,
+                "course_name": cc.course.name,
+                "abbr_name": cc.course.abbr_name,
+                "class_number": cc.class_number,
+                "classes_total": cc.course.classes_total,
+            }
+            for cc in qs
+        ]
+        return Response(
+            sorted(data, key=lambda x: (x["course_name"], x["class_number"]))
+        )
+
+
+class AcademicTermViewSet(ScopedModelViewSet):
+    model = AcademicTerm
+    serializer_class = AcademicTermSerializer
     # perform_create inherited sets institute_id
 
 

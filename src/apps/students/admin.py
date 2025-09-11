@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Student, Term, StudentCustodian, StudentStatus
+from .models import Student, AcademicTerm, StudentCustodian, StudentStatus
 
 
 @admin.register(Student)
@@ -17,8 +17,8 @@ class StudentAdmin(admin.ModelAdmin):
     search_fields = ("spin", "first_name", "last_name")
 
 
-@admin.register(Term)
-class TermAdmin(admin.ModelAdmin):
+@admin.register(AcademicTerm)
+class AcademicTermAdmin(admin.ModelAdmin):
     list_display = ("name", "start_date", "end_date", "institute")
 
 
