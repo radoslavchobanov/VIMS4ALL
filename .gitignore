@@ -139,3 +139,7 @@ pnpm-debug.log*
 *.swp
 *.swo
 *~
+
+
+frontend/src/api/__generated__/
+frontend/openapi.json
