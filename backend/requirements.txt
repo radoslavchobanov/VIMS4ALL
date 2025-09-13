@@ -12,3 +12,4 @@ django-storages==1.14.4
 minio==7.2.7
 
 django-debug-toolbar==4.4.6
+django-cors-headers>=4.3.0

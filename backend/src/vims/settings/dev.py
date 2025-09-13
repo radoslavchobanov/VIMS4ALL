@@ -9,6 +9,8 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-unsafe-secret")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 TIME_ZONE = env("DJANGO_TIME_ZONE", default="UTC")
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 # ---- DB (internal docker network) ----
 DATABASES = {
     "default": {
