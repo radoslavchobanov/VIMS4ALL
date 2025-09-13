@@ -39,8 +39,7 @@ services:
   createbuckets:
     image: minio/mc:latest
     depends_on:
-      minio:
-        condition: service_healthy
+      minio: { condition: service_healthy }
     env_file: [.env.dev]
     entrypoint: ["/bin/sh", "-c"]
     command: >-
@@ -51,7 +50,8 @@ services:
 
   web:
     build:
-      context: .
+      context: ./backend
+      dockerfile: Dockerfile
     command: ["/bin/bash", "/app/docker/entrypoint.dev.sh"]
     env_file: [.env.dev]
     environment:
@@ -61,14 +61,12 @@ services:
       PYTHONPATH: /app/src
     user: "${UID:-1000}:${GID:-1000}"
     volumes:
-      - .:/app
+      - ./backend/src:/app/src
+      - ./backend/docker:/app/docker
     depends_on:
-      db:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      createbuckets:
-        condition: service_completed_successfully
+      db: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      createbuckets: { condition: service_completed_successfully }
     ports:
       - "${DEV_DJANGO_PORT:-8000}:8000"
 
@@ -76,19 +74,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
-    env_file:
-      - ./frontend/src/.env.dev
     environment:
-      # keep explicit if you read it in code; else rely on '/api'
       - VITE_API_BASE_URL=/api
     ports:
       - "5173:5173"
     volumes:
       - ./frontend:/usr/src/app
-      - ./frontend/node_modules:/usr/src/app/node_modules
+      - /usr/src/app/node_modules
     depends_on:
-      web:
-        condition: service_started
+      web: { condition: service_started }
 
 volumes:
   pgdata_dev:
