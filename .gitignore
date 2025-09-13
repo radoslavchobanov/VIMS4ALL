@@ -74,3 +74,68 @@ Thumbs.db
 # ---- Docker
 # named volumes are external; if you ever bind to local folders, ignore them here
 docker/*.pid
+
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.build/
+dist/
+htmlcov/
+.tox/
+.pytest_cache/
+.mypy_cache/
+.pytype/
+.coverage
+.coverage.*
+.cache/
+# virtual envs (keep them out even if you use one occasionally outside Docker)
+.venv/
+venv/
+ENV/
+
+# SQLite (in case someone runs Django locally)
+*.sqlite3
+db.sqlite3
+
+# Django collectstatic / media (if ever written to the host)
+**/staticfiles/**
+**/static/**
+**/media/**
+
+# --- Node / Vite (frontend) ---
+frontend/node_modules/
+frontend/dist/
+# Editor temp
+frontend/.eslintcache
+frontend/.tsbuildinfo
+
+# --- Env files (keep only the examples in git) ---
+.env
+.env.*
+frontend/.env*
+!**/.env.example
+
+# --- Logs ---
+*.log
+logs/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Misc ---
+# Mac, Linux temp files
+*.swp
+*.swo
+*~

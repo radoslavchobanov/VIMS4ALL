@@ -1,0 +1,12 @@
+.git
+.vscode
+.idea
+**/__pycache__/
+**/*.py[cod]
+.venv
+venv
+*.log
+.env
+.env.*
+frontend/
+node_modules
