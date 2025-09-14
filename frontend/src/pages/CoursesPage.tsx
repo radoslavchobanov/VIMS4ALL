@@ -1,4 +1,3 @@
-// src/pages/CoursesPage.tsx
 import { useEffect, useState } from "react";
 import {
   Paper,
