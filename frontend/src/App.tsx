@@ -1,9 +1,10 @@
-// src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AppChrome from "./ui/AppChrome";
 import StudentsPage from "./pages/StudentsPage";
 import SuperuserPage from "./pages/SuperuserPage";
+import EmployeesPage from "./pages/EmployeesPage";
+import CoursesPage from "./pages/CoursesPage";
 
 const Protected: React.FC<{ roles?: string[]; children: React.ReactNode }> = ({
   roles,
@@ -17,9 +18,6 @@ const Protected: React.FC<{ roles?: string[]; children: React.ReactNode }> = ({
 
 const Dashboard = () => <div>Welcome to VIMS</div>;
 const Forbidden = () => <div>Forbidden</div>;
-
-const EmployeesPage = () => <div>Employees table here</div>;
-const CoursesPage = () => <div>Courses table here</div>;
 
 export default function App() {
   return (
