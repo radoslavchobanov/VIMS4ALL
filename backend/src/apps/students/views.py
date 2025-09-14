@@ -1,4 +1,3 @@
-# apps/students/views.py
 from pathlib import Path
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
@@ -18,6 +17,7 @@ from .serializers import (
     AcademicTermSerializer,
 )
 from .permissions import HasInstitute
+from apps.common.media import public_media_url
 
 
 class ScopedModelViewSet(viewsets.ModelViewSet):
@@ -34,15 +34,6 @@ class ScopedModelViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(institute_id=self.get_institute_id())
-
-
-class StudentViewSet(ScopedModelViewSet):
-    model = Student
-
-    def get_serializer_class(self):
-        if self.action in ("create", "update", "partial_update"):
-            return StudentWriteSerializer
-        return StudentReadSerializer
 
 
 class StudentViewSet(ScopedModelViewSet):
@@ -86,7 +77,7 @@ class StudentViewSet(ScopedModelViewSet):
         # Save via Django storage (configured to MinIO below)
         student.photo.save(object_key, file, save=True)
 
-        return Response({"photo_url": getattr(student.photo, "url", None)}, status=200)
+        return Response({"photo_url": public_media_url(student.photo.name)}, status=200)
 
     @action(detail=False, methods=["get"], url_path="dedup")
     def dedup(self, request):

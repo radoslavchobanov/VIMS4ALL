@@ -5,6 +5,8 @@ from .services.photos import ensure_student_photo_or_default
 from .services.terms import get_nearest_term
 from .services.dedup import has_potential_duplicate
 
+from apps.common.media import public_media_url
+
 
 class StudentReadSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
@@ -40,7 +42,7 @@ class StudentReadSerializer(serializers.ModelSerializer):
 
     def get_photo_url(self, obj):
         f = getattr(obj, "photo", None)
-        return getattr(f, "url", None) if f else None
+        return public_media_url(getattr(f, "name", None)) if f else None
 
 
 class StudentWriteSerializer(serializers.ModelSerializer):

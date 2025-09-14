@@ -268,7 +268,7 @@ function UsersPanel() {
       { field: "id", headerName: "ID", width: 120 },
       { field: "username", headerName: "Username", flex: 1 },
       { field: "email", headerName: "Email", flex: 1 },
-      { field: "institute_id", headerName: "Institute", width: 160 },
+      { field: "institute_name", headerName: "Institute", width: 160 },
     ],
     []
   );

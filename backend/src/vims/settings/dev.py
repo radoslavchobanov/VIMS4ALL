@@ -1,4 +1,3 @@
-# src/vims/settings/dev.py
 from .base import *  # noqa
 from pathlib import Path
 
@@ -50,6 +49,8 @@ AWS_STORAGE_BUCKET_NAME = env("MINIO_MEDIA_BUCKET", default="vims-media")
 AWS_QUERYSTRING_AUTH = False
 AWS_DEFAULT_ACL = None
 AWS_S3_FILE_OVERWRITE = False
+
+MEDIA_PUBLIC_BASE = env("MEDIA_PUBLIC_BASE", default=None)
 
 # ---- Dev ergonomics ----
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
