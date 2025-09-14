@@ -1,49 +1,89 @@
-import axios from "axios";
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "./authStorage";
 
-export const api = axios.create({
+type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };
+
+export const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8000",
   headers: { "Content-Type": "application/json" },
-  withCredentials: false, // if you later move to httpOnly cookies
+  withCredentials: false, // we use Authorization header, not cookies
 });
 
-// Inject access token
+// ---- Attach Authorization on every request
 api.interceptors.request.use((config) => {
   const token = getAccessToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers = config.headers ?? {};
+    (config.headers as any).Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
-// Refresh on 401 once
-let refreshing: Promise<void> | null = null;
+// ---- Single-flight refresh controller
+let refreshing: Promise<string> | null = null;
+
+async function refreshAccess(): Promise<string> {
+  const refresh = getRefreshToken();
+  if (!refresh) throw new Error("No refresh token");
+  // IMPORTANT: use bare axios to avoid interceptor recursion
+  const url = (api.defaults.baseURL ?? "") + "/api/auth/token/refresh/";
+  const res = await axios.post(
+    url,
+    { refresh },
+    {
+      withCredentials: false, // <— FIX: must be false unless you enable CORS credentials server-side
+      timeout: 15000,
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+  const nextAccess: string = res.data.access;
+  const nextRefresh: string | undefined = res.data.refresh ?? refresh; // handle rotation or non-rotation
+  setTokens({ access: nextAccess, refresh: nextRefresh });
+  return nextAccess;
+}
 
 api.interceptors.response.use(
   (r) => r,
-  async (error) => {
-    const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+  async (error: AxiosError) => {
+    const resp = error.response;
+    const original = error.config as RetriableConfig | undefined;
+
+    if (!resp || !original) {
+      // network error or no config -> bubble up
+      return Promise.reject(error);
+    }
+
+    // Do not try to refresh if this is the refresh call itself
+    const originalUrl = (original.url || "").toString();
+    const isAuthRefresh = originalUrl.endsWith("/api/auth/token/refresh/");
+
+    if (resp.status === 401 && !original._retry && !isAuthRefresh) {
       original._retry = true;
 
       if (!refreshing) {
-        refreshing = (async () => {
-          const refresh = getRefreshToken();
-          if (!refresh) throw error;
-          const res = await axios.post(
-            `${api.defaults.baseURL}/api/auth/token/refresh/`,
-            { refresh },
-            { withCredentials: true }
-          );
-          setTokens({ access: res.data.access, refresh: refresh }); // some backends return only access
-        })()
+        refreshing = refreshAccess()
           .catch((e) => {
             clearTokens();
             throw e;
           })
-          .finally(() => (refreshing = null));
+          .finally(() => {
+            // allow the next refresh attempt after this one completes
+            setTimeout(() => (refreshing = null), 0);
+          });
       }
-      await refreshing;
-      return api(original);
+
+      try {
+        const newAccess = await refreshing;
+        // Ensure the retried request carries the fresh token
+        original.headers = original.headers ?? {};
+        (original.headers as any).Authorization = `Bearer ${newAccess}`;
+        return api(original);
+      } catch (e) {
+        // refresh failed -> propagate original error
+        return Promise.reject(error);
+      }
     }
+
     return Promise.reject(error);
   }
 );

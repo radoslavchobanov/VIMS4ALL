@@ -1,4 +1,3 @@
-// src/auth/AuthContext.tsx
 import { createContext, useContext, useEffect, useState } from "react";
 import { api } from "../lib/apiClient";
 import { setTokens, clearTokens, getAccessToken } from "../lib/authStorage";
@@ -6,8 +5,8 @@ import { setTokens, clearTokens, getAccessToken } from "../lib/authStorage";
 type User = {
   id: string;
   username: string;
-  roles: string[];        // e.g., ["superuser"] or ["institute_admin"]
-  institute_id?: string;  // used by your APIs
+  roles: string[]; // e.g., ["superuser"] or ["institute_admin"]
+  institute_id?: string; // used by your APIs
 };
 
 type AuthContextType = {
@@ -20,7 +19,9 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
 
   async function login(username: string, password: string) {
@@ -45,11 +46,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const token = getAccessToken();
     if (!token) return;
-    api.get("/api/auth/me/").then(r => setUser(r.data)).catch(() => clearTokens());
+    api
+      .get("/api/auth/me/")
+      .then((r) => setUser(r.data))
+      .catch(() => clearTokens());
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, hasRole, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, hasRole, isAuthenticated: !!user }}
+    >
       {children}
     </AuthContext.Provider>
   );
