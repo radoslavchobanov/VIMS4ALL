@@ -362,29 +362,53 @@ function CreateUserDialog({
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<string>("institute_admin");
+
+  // replaced "role" with explicit flags expected by backend
+  const [makeInstituteAdmin, setMakeInstituteAdmin] = useState<boolean>(true);
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [isStaff, setIsStaff] = useState<boolean>(false);
+
   const [instituteId, setInstituteId] = useState<string>("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    try {
-      const payload: any = {
-        username: username.trim(),
-        email: email.trim() || null,
-        password,
-        role,
-      };
-      if (role !== "superuser") payload.institute_id = instituteId || null;
 
+    // build payload according to AccountAdminCreateRequest
+    const payload: components["schemas"]["AccountAdminCreateRequest"] = {
+      username: username.trim(),
+      email: email.trim() || undefined,
+      password,
+      first_name: undefined,
+      last_name: undefined,
+      institute_id: makeInstituteAdmin
+        ? instituteId
+          ? Number(instituteId)
+          : null
+        : null,
+      make_institute_admin: makeInstituteAdmin,
+      is_active: isActive,
+      is_staff: isStaff,
+    };
+
+    try {
       await api.post(USERS_ENDPOINT, payload);
+      // reset only on successful submit
       setUsername("");
       setEmail("");
       setPassword("");
-      setRole("institute_admin");
+      setMakeInstituteAdmin(true);
+      setIsActive(true);
+      setIsStaff(false);
       setInstituteId("");
       onCreated();
     } catch (err: any) {
-      onError(err?.response?.data?.detail ?? "Failed to create user");
+      // try to surface server-side validation detail
+      const msg =
+        err?.response?.data?.detail ||
+        (typeof err?.response?.data === "string"
+          ? err.response.data
+          : "Failed to create user");
+      onError(msg);
     }
   }
 
@@ -422,50 +446,68 @@ function CreateUserDialog({
             required
           />
 
+          {/* Flags that map 1:1 to serializer fields */}
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                md: role !== "superuser" ? "1fr 1fr" : "1fr",
-              },
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" },
               gap: 2,
             }}
           >
             <TextField
               select
-              label="Role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
+              label="Make Institute Admin"
+              value={makeInstituteAdmin ? "true" : "false"}
+              onChange={(e) => setMakeInstituteAdmin(e.target.value === "true")}
+              helperText="Adds the user to the 'institute_admin' group."
+            >
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </TextField>
+
+            <TextField
+              select
+              label="Active"
+              value={isActive ? "true" : "false"}
+              onChange={(e) => setIsActive(e.target.value === "true")}
+            >
+              <MenuItem value="true">Active</MenuItem>
+              <MenuItem value="false">Inactive</MenuItem>
+            </TextField>
+
+            <TextField
+              select
+              label="Staff"
+              value={isStaff ? "true" : "false"}
+              onChange={(e) => setIsStaff(e.target.value === "true")}
+              helperText="Allows login to Django admin."
+            >
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </TextField>
+          </Box>
+
+          {/* Institute is required only if make_institute_admin === true */}
+          {makeInstituteAdmin && (
+            <TextField
+              select
+              label="Institute"
+              value={instituteId}
+              onChange={(e) => setInstituteId(e.target.value)}
               required
             >
-              {rolesOptions.map((r) => (
-                <MenuItem key={r.value} value={r.value}>
-                  {r.label}
+              {institutes.map((i) => (
+                <MenuItem key={String(i.id)} value={String(i.id)}>
+                  {i.name}
                 </MenuItem>
               ))}
             </TextField>
-
-            {role !== "superuser" && (
-              <TextField
-                select
-                label="Institute"
-                value={instituteId}
-                onChange={(e) => setInstituteId(e.target.value)}
-                required
-              >
-                {institutes.map((i) => (
-                  <MenuItem key={String(i.id)} value={String(i.id)}>
-                    {i.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
-          </Box>
+          )}
 
           <Divider />
           <Typography variant="body2" color="text.secondary">
-            Non-superusers must belong to an institute.
+            If <strong>Make Institute Admin</strong> is set to <em>Yes</em>, an
+            institute must be selected (server validation enforces this).
           </Typography>
         </DialogContent>
         <DialogActions>

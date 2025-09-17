@@ -11,13 +11,28 @@ class InstituteReadSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "short_name",
             "business_year_start",
             "business_year_end",
-            "logo_key",  # read-only key we store in DB
-            "logo_url",  # computed public URL
+            "post_office_box",
+            "phone",
+            "email",
+            "district",
+            "county",
+            "sub_county",
+            "parish",
+            "cell_village",
+            "registration_no",
+            "inst_nssf_no",
+            "inst_paye_no",
+            "taxflag",
+            "directions_and_comments",
+            "logo_key",
+            "logo_url",
             "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "logo_key", "logo_url"]
+        read_only_fields = ["id", "created_at", "updated_at", "logo_key", "logo_url"]
 
     def get_logo_url(self, obj):
         if obj.logo_key:
@@ -29,26 +44,48 @@ class InstituteReadSerializer(serializers.ModelSerializer):
 
 
 class InstituteWriteSerializer(serializers.ModelSerializer):
-    """
-    POST/PUT/PATCH payload. No logo_key here.
-    All listed fields are required on POST (DRF default), you said they should be mandatory.
-    """
-
     class Meta:
         model = Institute
-        fields = ["name", "business_year_start", "business_year_end"]
+        fields = [
+            "name",
+            "short_name",
+            "business_year_start",
+            "business_year_end",
+            "post_office_box",
+            "phone",
+            "email",
+            "district",
+            "county",
+            "sub_county",
+            "parish",
+            "cell_village",
+            "registration_no",
+            "inst_nssf_no",
+            "inst_paye_no",
+            "taxflag",
+            "directions_and_comments",
+        ]
 
     def validate(self, attrs):
+        inst = getattr(self, "instance", None)
         start = attrs.get("business_year_start") or getattr(
-            self.instance, "business_year_start", None
+            inst, "business_year_start", None
         )
-        end = attrs.get("business_year_end") or getattr(
-            self.instance, "business_year_end", None
-        )
+        end = attrs.get("business_year_end") or getattr(inst, "business_year_end", None)
         if start and end and end < start:
             raise serializers.ValidationError(
                 "Business year end must be on/after start."
             )
+        phone = attrs.get("phone")
+        if phone:
+            normalized = (
+                phone.replace(" / ", "/")
+                .replace("/", ",")
+                .replace(" ,", ",")
+                .replace("  ", " ")
+                .strip()
+            )
+            attrs["phone"] = normalized
         return attrs
 
 
