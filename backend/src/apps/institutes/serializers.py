@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from django.core.files.storage import default_storage
+
+from apps.common.media import public_media_url
 from .models import Institute
 
 
@@ -35,12 +36,7 @@ class InstituteReadSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "logo_key", "logo_url"]
 
     def get_logo_url(self, obj):
-        if obj.logo_key:
-            try:
-                return default_storage.url(obj.logo_key)
-            except Exception:
-                return None
-        return None
+        return public_media_url(obj.logo_key)
 
 
 class InstituteWriteSerializer(serializers.ModelSerializer):

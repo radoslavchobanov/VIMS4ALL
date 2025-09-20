@@ -42,7 +42,8 @@ class StudentReadSerializer(serializers.ModelSerializer):
 
     def get_photo_url(self, obj):
         f = getattr(obj, "photo", None)
-        return public_media_url(getattr(f, "name", None)) if f else None
+        key = getattr(f, "name", None) if f and f.name else None
+        return public_media_url(key, obj.institute_id)
 
 
 class StudentWriteSerializer(serializers.ModelSerializer):

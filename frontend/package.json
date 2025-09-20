@@ -8,11 +8,14 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
     "gen:types:local": "openapi-typescript http://localhost:8000/api/schema/ -o src/api/__generated__/vims-types.ts",
+    "schema:stdout": "docker compose exec -T web python src/manage.py spectacular --format openapi-json --file - > openapi.json",
+    "gen:types:file": "openapi-typescript ./openapi.json -o src/api/__generated__/vims-types.ts",
+    "gen:types:stdout": "npm run schema:stdout && npm run gen:types:file",
     "gen:schema": "docker compose exec web python src/manage.py spectacular --format openapi-json --file /app/openapi.json",
     "pull:schema": "docker cp $(docker compose ps -q web):/app/openapi.json ./openapi.json",
-    "gen:types:file": "openapi-typescript ./openapi.json -o src/api/__generated__/vims-types.ts",
     "gen:types:offline": "npm run gen:schema && npm run pull:schema && npm run gen:types:file",
-    "prebuild": "npm run gen:types:local"
+    "gen:types": "npm run gen:types:local || npm run gen:types:stdout",
+    "prebuild": "npm run gen:types"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

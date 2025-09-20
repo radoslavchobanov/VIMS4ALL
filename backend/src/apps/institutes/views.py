@@ -1,4 +1,3 @@
-# apps/institutes/views.py
 from pathlib import Path
 from rest_framework import viewsets, status
 from rest_framework.response import Response
@@ -18,6 +17,7 @@ from .serializers import (
     InstituteLogoUploadSerializer,
     InstituteLogoUploadResponseSerializer,
 )
+from apps.common.media import public_media_url
 
 
 class InstituteAdminViewSet(viewsets.ModelViewSet):
@@ -69,4 +69,4 @@ class InstituteAdminViewSet(viewsets.ModelViewSet):
         institute.logo_key = saved_key
         institute.save(update_fields=["logo_key"])
 
-        return Response({"logo_url": default_storage.url(saved_key)}, status=200)
+        return Response({"logo_url": public_media_url(institute.logo_key)}, status=200)

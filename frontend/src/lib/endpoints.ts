@@ -1,6 +1,10 @@
 /* ================== Admin / System ================== */
 export const INSTITUTES_ENDPOINT =
   import.meta.env.VITE_INSTITUTES_ENDPOINT ?? "/api/admin/institutes/";
+
+export const INSTITUTE_LOGO_ENDPOINT = (id: number | string) =>
+  `${INSTITUTES_ENDPOINT}${id}/logo/`;
+
 export const USERS_ENDPOINT =
   import.meta.env.VITE_USERS_ENDPOINT ?? "/api/admin/accounts/";
 
