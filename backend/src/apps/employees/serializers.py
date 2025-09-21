@@ -4,9 +4,14 @@ from .services.epin import generate_epin
 
 
 class EmployeeFunctionSerializer(serializers.ModelSerializer):
+    scope = serializers.SerializerMethodField()
+
     class Meta:
         model = EmployeeFunction
-        fields = ["id", "name"]
+        fields = ["id", "name", "scope"]
+
+    def get_scope(self, obj):
+        return "global" if obj.institute_id is None else "institute"
 
 
 class EmployeeReadSerializer(serializers.ModelSerializer):
@@ -107,9 +112,20 @@ class EmployeeCareerSerializer(serializers.ModelSerializer):
             self.fields["employee"].queryset = Employee.all_objects.filter(
                 institute_id=iid
             )
-            self.fields["function"].queryset = EmployeeFunction.all_objects.filter(
-                institute_id=iid
-            )
+            # CRITICAL: union of global + current institute
+            self.fields["function"].queryset = EmployeeFunction.objects.all()
+
+    def validate(self, data):
+        # Double-check the selected function is in the union visible to employee's institute
+        employee = data.get("employee")
+        func = data.get("function")
+        if employee and func:
+            allowed = EmployeeFunction.objects.filter(pk=func.pk).exists()
+            if not allowed:
+                raise serializers.ValidationError(
+                    {"function": "Function is not available for this institute."}
+                )
+        return data
 
 
 class EmployeeDependentSerializer(serializers.ModelSerializer):

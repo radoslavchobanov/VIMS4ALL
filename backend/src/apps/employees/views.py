@@ -77,7 +77,52 @@ class EmployeeViewSet(ScopedModelViewSet):
         return Response({"photo_url": getattr(employee.photo, "url", None)}, status=200)
 
 
-class EmployeeFunctionViewSet(ScopedModelViewSet):
+class OptionallyScopedModelViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, HasInstitute]
+    model = None
+    serializer_class = None
+
+    def get_queryset(self):
+        # Manager already returns union (GLOBAL ∪ current institute) using middleware iid
+        return self.model.objects.all()
+
+    def perform_create(self, serializer):
+        """
+        Policy:
+        - If payload omits 'institute', default to current user's institute (tenant-scoped).
+        - If payload sets 'institute' NULL (global), allow ONLY for superusers (hardening).
+        - If payload sets a non-NULL 'institute', enforce it matches current institute.
+        """
+        iid = getattr(self.request.user, "institute_id", None)
+        is_global = serializer.validated_data.get("institute") is None
+
+        if (
+            "institute" not in serializer.validated_data
+            and "institute_id" not in serializer.validated_data
+        ):
+            # default to tenant-scoped
+            serializer.save(institute_id=iid)
+            return
+
+        if is_global:
+            if not getattr(self.request.user, "is_superuser", False):
+                from rest_framework.exceptions import PermissionDenied
+
+                raise PermissionDenied(
+                    "Only superusers can create global employee functions."
+                )
+            serializer.save()
+            return
+
+        # institute explicitly provided -> must match caller's institute
+        if serializer.validated_data.get("institute_id") != iid:
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("Cannot create functions for another institute.")
+        serializer.save()
+
+
+class EmployeeFunctionViewSet(OptionallyScopedModelViewSet):
     model = EmployeeFunction
     serializer_class = EmployeeFunctionSerializer
 

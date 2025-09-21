@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from apps.common.models import InstituteScopedModel
+from apps.common.models import InstituteScopedModel, TimeStampedModel
 from apps.employees.models import Employee
 
 
@@ -45,7 +45,7 @@ class Course(InstituteScopedModel):
         return self.name
 
 
-class CourseClass(InstituteScopedModel):
+class CourseClass(InstituteScopedModel, TimeStampedModel):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="classes")
     term = models.ForeignKey(
         "students.AcademicTerm", on_delete=models.PROTECT, related_name="classes"
@@ -56,6 +56,12 @@ class CourseClass(InstituteScopedModel):
     class Meta:
         unique_together = (("institute", "course", "class_number", "term"),)
         ordering = ["course__name", "term__start_date", "class_number"]
+        indexes = [
+            models.Index(fields=["term"], name="courseclass_term_idx"),
+            models.Index(
+                fields=["institute", "term"], name="courseclass_inst_term_idx"
+            ),
+        ]
 
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -66,7 +72,7 @@ class CourseClass(InstituteScopedModel):
             raise ValidationError("class_number must be within 1..classes_total.")
 
 
-class CourseInstructor(InstituteScopedModel):
+class CourseInstructor(InstituteScopedModel, TimeStampedModel):
     """
     Assign 1..N instructors to a CourseClass.
     Only active employees with function “Instructor” and exit_date is null should be linked (validated in serializer).
@@ -81,10 +87,15 @@ class CourseInstructor(InstituteScopedModel):
 
     class Meta:
         unique_together = ("institute", "course_class", "instructor")
-        indexes = [models.Index(fields=["course_class"], name="ci_class_idx")]
+        indexes = [
+            models.Index(fields=["course_class"], name="ci_class_idx"),
+            models.Index(
+                fields=["institute", "course_class"], name="ci_inst_class_idx"
+            ),
+        ]
 
 
-class Enrollment(InstituteScopedModel):
+class Enrollment(InstituteScopedModel, TimeStampedModel):
     student = models.ForeignKey(
         "students.Student", on_delete=models.CASCADE, related_name="enrollments"
     )

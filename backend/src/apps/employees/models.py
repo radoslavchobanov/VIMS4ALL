@@ -1,7 +1,8 @@
 from django.db import models
 from django.utils import timezone
 from django.db.models import Q
-from apps.common.models import InstituteScopedModel
+from apps.common.models import InstituteScopedModel, OptionallyScopedModel
+from apps.employees.managers import EmployeeScopedManager
 
 
 class Employee(InstituteScopedModel):
@@ -54,6 +55,9 @@ class Employee(InstituteScopedModel):
     comments = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
+    objects = EmployeeScopedManager()
+    all_objects = models.Manager()
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -75,18 +79,44 @@ class Employee(InstituteScopedModel):
             raise ValidationError("Exit date must be on/after entry date.")
 
 
-class EmployeeFunction(InstituteScopedModel):
+class EmployeeFunction(OptionallyScopedModel):
     """
-    Lookup table for functions (e.g., Managing Director, Principal, Accountant, ...)
+    Global when institute is NULL; institute-specific otherwise.
     """
 
     name = models.CharField(max_length=120)
+    code = models.CharField(max_length=32, null=True, blank=True)
 
     class Meta:
-        unique_together = ("institute", "name")
         ordering = ["name"]
+        constraints = [
+            # Uniqueness among GLOBAL rows
+            models.UniqueConstraint(
+                fields=["name"],
+                condition=Q(institute__isnull=True),
+                name="uq_empfunc_global_name",
+            ),
+            # Uniqueness within an institute for non-NULL rows
+            models.UniqueConstraint(
+                fields=["institute", "name"],
+                condition=Q(institute__isnull=False),
+                name="uq_empfunc_per_institute_name",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["name"],
+                name="empfunc_name_global_idx",
+                condition=Q(institute__isnull=True),
+            ),
+            models.Index(
+                fields=["institute", "name"],
+                name="empfunc_inst_name_idx",
+                condition=Q(institute__isnull=False),
+            ),
+        ]
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.name
 
 
@@ -121,7 +151,8 @@ class EmployeeCareer(InstituteScopedModel):
             )
         ]
         indexes = [
-            models.Index(fields=["employee", "-start_date"], name="emp_career_idx")
+            models.Index(fields=["employee", "end_date"], name="emp_car_emp_end_idx"),
+            models.Index(fields=["function", "end_date"], name="emp_car_fun_end_idx"),
         ]
 
     def clean(self):

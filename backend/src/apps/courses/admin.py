@@ -1,5 +1,7 @@
 from django.contrib import admin
+
 from .models import Course, CourseClass, CourseInstructor
+from apps.employees.models import Employee
 
 
 @admin.register(Course)
@@ -31,3 +33,8 @@ class CourseInstructorAdmin(admin.ModelAdmin):
         "instructor__last_name",
         "course_class__course__name",
     )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "instructor":
+            kwargs["queryset"] = Employee.objects.active().instructors()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)

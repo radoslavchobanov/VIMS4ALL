@@ -20,9 +20,18 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 @admin.register(EmployeeFunction)
 class EmployeeFunctionAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "institute")
+    list_display = ("id", "name", "scope")
     search_fields = ("name",)
     list_filter = ("institute",)
+
+    def get_queryset(self, request):
+        # Admin should see everything
+        return EmployeeFunction.all_objects.all()
+
+    def scope(self, obj):
+        return (
+            "GLOBAL" if obj.institute_id is None else f"Institute #{obj.institute_id}"
+        )
 
 
 @admin.register(EmployeeCareer)

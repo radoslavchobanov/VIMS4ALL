@@ -5,6 +5,7 @@ import StudentsPage from "./pages/StudentsPage";
 import SuperuserPage from "./pages/SuperuserPage";
 import EmployeesPage from "./pages/EmployeesPage";
 import CoursesPage from "./pages/CoursesPage";
+import TermsPage from "./pages/TermsPage";
 
 const Protected: React.FC<{ roles?: string[]; children: React.ReactNode }> = ({
   roles,
@@ -28,7 +29,6 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/forbidden" element={<Forbidden />} />
-
             <Route
               path="/admin"
               element={
@@ -58,6 +58,14 @@ export default function App() {
               element={
                 <Protected roles={["institute_admin"]}>
                   <CoursesPage />
+                </Protected>
+              }
+            />
+            <Route
+              path="/terms"
+              element={
+                <Protected roles={["institute_admin"]}>
+                  <TermsPage />
                 </Protected>
               }
             />

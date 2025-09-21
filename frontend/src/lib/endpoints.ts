@@ -38,13 +38,19 @@ export const COURSES_ENDPOINT =
   import.meta.env.VITE_COURSES_ENDPOINT ?? "/api/courses/";
 export const COURSE_CLASSES_ENDPOINT = (courseId: number | string) =>
   `${COURSES_ENDPOINT}${courseId}/classes/`;
-export const COURSE_INSTRUCTORS_ENDPOINT = (classId: number | string) =>
-  `/api/course-classes/${classId}/instructors/`; // separate collection under CourseClass
+export const COURSE_INSTRUCTORS_ENDPOINT =
+  `/api/course-instructors/`;
+export const COURSE_INSTRUCTORS_BY_CLASS_ENDPOINT = (classId: number | string) =>
+    `/api/course-instructors/by-class/${classId}/`;
+export const COURSE_ELIGIBLE_INSTRUCTORS_ENDPOINT =
+`/api/course-instructors/eligible-instructors/`;
 
 // Stand‑alone collection for listing all course classes (not nested under a course)
 export const COURSE_CLASSES_COLLECTION_ENDPOINT =
   import.meta.env.VITE_COURSE_CLASSES_COLLECTION_ENDPOINT ??
   "/api/course-classes/";
+export const COURSE_CLASSES_COLLECTION_BY_TERM_ENDPOINT = (termId: number | string) =>
+  `${COURSE_CLASSES_COLLECTION_ENDPOINT}by-term/${termId}`;
 
 /* ================== Academic Terms ================== */
 export const TERMS_ENDPOINT =

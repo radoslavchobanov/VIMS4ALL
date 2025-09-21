@@ -45,7 +45,7 @@ type CustodianWrite = components["schemas"]["StudentCustodian"] | any;
 type StudentStatusRead = components["schemas"]["StudentStatus"] | any;
 type StudentStatusWrite = components["schemas"]["StudentStatus"] | any;
 type AcademicTermRead = components["schemas"]["AcademicTerm"] | any;
-type CourseClassRead = components["schemas"]["CourseClass"] | any;
+type CourseClassRead = components["schemas"]["CourseClassRead"] | any;
 
 type Row = { spin: string; given_name: string; family_name: string };
 type Page<T> = {
