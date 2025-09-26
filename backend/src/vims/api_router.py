@@ -17,7 +17,11 @@ from apps.courses.views import (
     CourseClassViewSet,
     CourseInstructorViewSet,
 )
-
+from apps.finance.views import (
+    AccountTypeViewSet,
+    FinanceAccountViewSet,
+    LedgerEntryViewSet,
+)
 from apps.institutes.views import InstituteAdminViewSet
 from apps.accounts.views import AccountAdminViewSet
 
@@ -52,5 +56,12 @@ router.register(r"course-classes", CourseClassViewSet, basename="course-classes"
 router.register(
     r"course-instructors", CourseInstructorViewSet, basename="course-instructors"
 )
+
+# FINANCE ENDPOINTS
+router.register(
+    r"finance/account-types", AccountTypeViewSet, basename="finance-account-types"
+)
+router.register(r"finance/accounts", FinanceAccountViewSet, basename="finance-accounts")
+router.register(r"finance/ledger", LedgerEntryViewSet, basename="finance-ledger")
 
 urlpatterns = router.urls

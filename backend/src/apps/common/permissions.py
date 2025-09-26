@@ -32,3 +32,11 @@ class IsSuperuserOrInstituteAdminOfSameInstitute(BasePermission):
         if u.is_superuser:
             return True
         return _is_institute_admin(u) and getattr(u, "institute_id", None) == obj.id
+
+
+class HasInstitute(BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            getattr(request.user, "is_authenticated", False)
+            and getattr(request.user, "institute_id", None)
+        )

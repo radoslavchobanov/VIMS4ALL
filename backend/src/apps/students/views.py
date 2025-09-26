@@ -1,6 +1,4 @@
 from pathlib import Path
-from rest_framework import viewsets, status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
@@ -16,24 +14,8 @@ from .serializers import (
     StudentWriteSerializer,
     AcademicTermSerializer,
 )
-from .permissions import HasInstitute
 from apps.common.media import public_media_url
-
-
-class ScopedModelViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, HasInstitute]
-    model = None
-
-    def get_institute_id(self):
-        return getattr(self.request.user, "institute_id", None)
-
-    def get_queryset(self):
-        iid = self.get_institute_id()
-        qs = self.model.all_objects
-        return qs.filter(institute_id=iid) if iid else qs.none()
-
-    def perform_create(self, serializer):
-        serializer.save(institute_id=self.get_institute_id())
+from apps.common.views import ScopedModelViewSet
 
 
 class StudentViewSet(ScopedModelViewSet):

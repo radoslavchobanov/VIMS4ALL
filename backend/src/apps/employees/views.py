@@ -1,12 +1,12 @@
 from pathlib import Path
-from rest_framework import viewsets, status
+from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 
-from apps.students.permissions import HasInstitute
+from apps.common.permissions import HasInstitute
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
 from .serializers import (
     EmployeeReadSerializer,

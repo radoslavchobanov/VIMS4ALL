@@ -5,8 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
 
-from apps.employees.models import Employee
-from apps.students.permissions import HasInstitute
+from apps.common.permissions import HasInstitute
 from apps.employees.selectors import q_active_instructors
 from .models import Course, CourseClass, CourseInstructor
 from .serializers import (

@@ -1,0 +1,97 @@
+from rest_framework import serializers
+from .models import AccountType, FinanceAccount, FinanceLedgerEntry
+
+
+class AccountTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AccountType
+        fields = ["id", "code", "acc_category", "section", "is_active"]
+
+
+class FinanceAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinanceAccount
+        read_only_fields = ["id", "institute_id"]
+        fields = ["id", "institute_id", "kind", "name", "currency", "is_active"]
+
+
+class LedgerEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinanceLedgerEntry
+        read_only_fields = [
+            "id",
+            "institute",
+            "transfer_id",
+            "created_at",
+            "updated_at",
+            "created_by_id",
+            "debit_finance_account",
+            "debit_category",
+            "credit_finance_account",
+            "credit_category",
+        ]
+        fields = [
+            "id",
+            "institute",
+            "account",
+            "date",
+            "counterparty",
+            "comment",
+            "amount",
+            "category",
+            "transfer_id",
+            "created_by_id",
+            "created_at",
+            "updated_at",
+            # (read-only)
+            "debit_finance_account",
+            "debit_category",
+            "credit_finance_account",
+            "credit_category",
+        ]
+
+    def create(self, validated_data):
+        # populate institute/user ids from request (keeps clients slim)
+        req = self.context["request"]
+        validated_data["institute_id"] = getattr(req.user, "institute_id", None)
+        validated_data["created_by_id"] = getattr(req.user, "id", None)
+        return super().create(validated_data)
+
+
+class TransferRequestSerializer(serializers.Serializer):
+    from_account = serializers.IntegerField()
+    to_account = serializers.IntegerField()
+    date = serializers.DateField()
+    amount = serializers.DecimalField(
+        max_digits=14, decimal_places=2, min_value=0.01
+    )  # must be positive
+    comment = serializers.CharField(allow_blank=True, required=False)
+    counterparty = serializers.CharField(allow_blank=True, required=False)
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        iid = getattr(request.user, "institute_id", None)
+
+        # from != to
+        if attrs["from_account"] == attrs["to_account"]:
+            raise serializers.ValidationError(
+                "from_account and to_account must differ."
+            )
+
+        # enforce institute scope on both accounts
+        for field in ("from_account", "to_account"):
+            acc_id = attrs[field]
+            exists = FinanceAccount.all_objects.filter(
+                id=acc_id, institute_id=iid
+            ).exists()
+            if not exists:
+                raise serializers.ValidationError(
+                    {field: f"Account {acc_id} not found for this institute."}
+                )
+
+        return attrs
+
+
+class TransferResponseSerializer(serializers.Serializer):
+    out_entry = serializers.PrimaryKeyRelatedField(read_only=True)
+    in_entry = serializers.PrimaryKeyRelatedField(read_only=True)
