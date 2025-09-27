@@ -25,11 +25,9 @@ mm:
 
 # Export fresh schema from the running web container
 schema-json:
-	$(COMPOSE) exec web python src/manage.py spectacular --format openapi-json --file /app/schema/openapi.json
+	$(COMPOSE) exec web python src/manage.py spectacular --format openapi-json > frontend/openapi.json
 
-# Generate TypeScript types (openapi-typescript)
 gen-types:
-	npx openapi-typescript server/schema/openapi.json -o frontend/src/api/__generated__/vims-types.d.ts
+	npx openapi-typescript frontend/openapi.json -o frontend/src/api/__generated__/vims-types.ts
 
-# End-to-end: dump schema then generate types
 regen-types: schema-json gen-types

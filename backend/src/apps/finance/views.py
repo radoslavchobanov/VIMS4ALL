@@ -1,15 +1,19 @@
+from decimal import Decimal
 from drf_spectacular.utils import extend_schema
-from django.db.models import Q, Sum
-from rest_framework import viewsets, status
+from django.db.models import Q, Sum, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.common.permissions import (
     IsSuperuser,
     IsSuperuserOrInstituteAdminOfSameInstitute,
 )
 from apps.common.views import ScopedModelViewSet
+from apps.finance.filters import LedgerEntryFilter
 from .models import AccountType, FinanceAccount, FinanceLedgerEntry, AccountSection
 from .serializers import (
     AccountTypeSerializer,
@@ -45,6 +49,22 @@ class FinanceAccountViewSet(ScopedModelViewSet):
     model = FinanceAccount
     serializer_class = FinanceAccountSerializer
 
+    def get_queryset(self):
+        # Start with the scoped queryset from ScopedModelViewSet (likely filters by institute)
+        qs = super().get_queryset()
+
+        # Subquery: sum the ledger amounts for this account within the same institute
+        sum_qs = (
+            FinanceLedgerEntry.all_objects.filter(
+                account_id=OuterRef("pk"), institute_id=OuterRef("institute_id")
+            )
+            .values("account_id")
+            .annotate(b=Coalesce(Sum("amount"), Value(Decimal("0"))))
+            .values("b")[:1]
+        )
+
+        return qs.annotate(balance=Coalesce(Subquery(sum_qs), Value(Decimal("0"))))
+
 
 class LedgerEntryViewSet(ScopedModelViewSet):
     """
@@ -54,7 +74,13 @@ class LedgerEntryViewSet(ScopedModelViewSet):
 
     model = FinanceLedgerEntry
     serializer_class = LedgerEntrySerializer
-    filterset_fields = ["account", "category", "date"]
+
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = LedgerEntryFilter
     search_fields = ["counterparty", "comment"]
     ordering_fields = ["date", "amount", "id"]
     ordering = ["-date", "-id"]

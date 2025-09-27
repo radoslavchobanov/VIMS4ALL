@@ -9,13 +9,29 @@ class AccountTypeSerializer(serializers.ModelSerializer):
 
 
 class FinanceAccountSerializer(serializers.ModelSerializer):
+    balance = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+
     class Meta:
         model = FinanceAccount
-        read_only_fields = ["id", "institute_id"]
-        fields = ["id", "institute_id", "kind", "name", "currency", "is_active"]
+        read_only_fields = ["id", "institute_id", "balance"]
+        fields = [
+            "id",
+            "institute_id",
+            "kind",
+            "name",
+            "currency",
+            "is_active",
+            "balance",
+        ]
 
 
 class LedgerEntrySerializer(serializers.ModelSerializer):
+    # make FKs explicit and override queryset later based on request
+    account = serializers.PrimaryKeyRelatedField(
+        queryset=FinanceAccount.all_objects.all()
+    )
+    category = serializers.PrimaryKeyRelatedField(queryset=AccountType.objects.all())
+
     class Meta:
         model = FinanceLedgerEntry
         read_only_fields = [
@@ -49,6 +65,32 @@ class LedgerEntrySerializer(serializers.ModelSerializer):
             "credit_finance_account",
             "credit_category",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Scope the selectable accounts/categories to the current institute & active ones
+        request = self.context.get("request")
+        iid = getattr(getattr(request, "user", None), "institute_id", None)
+        if iid:
+            self.fields["account"].queryset = FinanceAccount.all_objects.filter(
+                institute_id=iid, is_active=True
+            )
+        # (optional) keep categories to active ones only; drop if you want all
+        self.fields["category"].queryset = AccountType.objects.filter(is_active=True)
+
+    def validate(self, attrs):
+        """
+        Enforce that the selected account belongs to the current institute.
+        (Defensive: the queryset already scopes it, but this gives a better error.)
+        """
+        request = self.context.get("request")
+        iid = getattr(getattr(request, "user", None), "institute_id", None)
+        acc = attrs.get("account")
+        if iid and acc and getattr(acc, "institute_id", None) != iid:
+            raise serializers.ValidationError(
+                {"account": "Account not found for this institute."}
+            )
+        return attrs
 
     def create(self, validated_data):
         # populate institute/user ids from request (keeps clients slim)

@@ -59,7 +59,9 @@ export const COURSE_CLASSES_COLLECTION =
 import.meta.env.VITE_COURSE_CLASSES ?? "/api/course-classes/";
 
 /* ================== Finance ================== */
-export const ACCOUNTS_ENDPOINT =
-  import.meta.env.VITE_ACCOUNTS_ENDPOINT ?? "/api/accounts/"; // LUT_AccountType
-export const JOURNAL_ENDPOINT =
-  import.meta.env.VITE_JOURNAL_ENDPOINT ?? "/api/journal/";
+export const FIN_ACCOUNTS_ENDPOINT = "/api/finance/accounts/";
+export const FIN_LEDGER_ENDPOINT = "/api/finance/ledger/";
+export const FIN_LEDGER_TRANSFER_ENDPOINT = "/api/finance/ledger/transfer/";
+export const FIN_LEDGER_CATEGORIES_FOR_AMOUNT_ENDPOINT =
+  "/api/finance/ledger/categories-for-amount";
+export const FIN_ACCOUNT_TYPES_ENDPOINT = "/api/finance/account-types/";

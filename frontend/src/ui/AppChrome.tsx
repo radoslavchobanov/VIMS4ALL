@@ -29,6 +29,7 @@ const MENU: Array<{ label: string; to: string; roles?: string[] }> = [
   { label: "Employees", to: "/employees", roles: ["institute_admin"] },
   { label: "Courses", to: "/courses", roles: ["institute_admin"] },
   { label: "Terms", to: "/terms", roles: ["institute_admin"] },
+  { label: "Finance", to: "/finance", roles: ["institute_admin", "superuser"] },
 ];
 
 export default function AppChrome({ children }: PropsWithChildren) {

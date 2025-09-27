@@ -13,3 +13,4 @@ minio==7.2.7
 
 django-debug-toolbar==4.4.6
 django-cors-headers>=4.3.0
+django-filter==23.2
