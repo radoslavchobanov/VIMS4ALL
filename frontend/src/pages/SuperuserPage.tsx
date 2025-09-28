@@ -685,73 +685,72 @@ function CreateUserDialog({
   onError: (m: string) => void;
   institutes: InstituteRead[];
 }) {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  type UserCreateForm = {
+    username: string;
+    email?: string;
+    password: string;
+    make_institute_admin: boolean;
+    is_active: boolean;
+    is_staff: boolean;
+    institute_id?: string; // keep as string in UI; convert to number/null on submit
+  };
 
-  const [makeInstituteAdmin, setMakeInstituteAdmin] = useState<boolean>(true);
-  const [isActive, setIsActive] = useState<boolean>(true);
-  const [isStaff, setIsStaff] = useState<boolean>(false);
-  const [instituteId, setInstituteId] = useState<string>("");
+  const empty = (): UserCreateForm => ({
+    username: "",
+    email: "",
+    password: "",
+    make_institute_admin: true,
+    is_active: true,
+    is_staff: false,
+    institute_id: "",
+  });
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-
+  const onSubmit = async (form: UserCreateForm) => {
+    // UI → API payload mapping
     const payload: components["schemas"]["AccountAdminCreateRequest"] = {
-      username: username.trim(),
-      email: email.trim() || undefined,
-      password,
+      username: form.username.trim(),
+      email: form.email?.trim() || undefined,
+      password: form.password,
       first_name: undefined,
       last_name: undefined,
-      institute_id: makeInstituteAdmin
-        ? instituteId
-          ? Number(instituteId)
+      make_institute_admin: form.make_institute_admin,
+      is_active: form.is_active,
+      is_staff: form.is_staff,
+      institute_id: form.make_institute_admin
+        ? form.institute_id
+          ? Number(form.institute_id)
           : null
         : null,
-      make_institute_admin: makeInstituteAdmin,
-      is_active: isActive,
-      is_staff: isStaff,
     };
 
-    try {
-      await api.post(USERS_ENDPOINT, payload);
-      setUsername("");
-      setEmail("");
-      setPassword("");
-      setMakeInstituteAdmin(true);
-      setIsActive(true);
-      setIsStaff(false);
-      setInstituteId("");
-      onCreated();
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ||
-        (typeof err?.response?.data === "string"
-          ? err.response.data
-          : "Failed to create user");
-      onError(msg);
+    // simple guard when admin selected but no institute chosen
+    if (
+      payload.make_institute_admin &&
+      (payload.institute_id === null || Number.isNaN(payload.institute_id))
+    ) {
+      throw new Error("Please select an institute for institute admins.");
     }
-  }
+
+    await api.post(USERS_ENDPOINT, payload);
+  };
 
   return (
-    <EntityFormDialog
+    <EntityFormDialog<UserCreateForm, never>
       title="Create User"
       open={open}
       mode="create"
       initial={undefined}
-      emptyFactory={() => ({} as any)}
-      mapInitialToWrite={(x) => x as any}
+      emptyFactory={empty}
+      mapInitialToWrite={(x) => x as any} // unused for create
       onClose={onClose}
-      onSubmit={async () => {}}
-      onSuccess={() => {}}
-      onError={() => {}}
-      // We’re not using the generic submit here; keep your existing form body:
-      renderFields={() => (
-        <Box
-          component="form"
-          onSubmit={submit}
-          sx={{ display: "grid", gap: 2 }}
-        >
+      onSubmit={onSubmit}
+      onSuccess={onCreated}
+      onError={(msg) =>
+        onError(typeof msg === "string" ? msg : "Failed to create user")
+      }
+      // IMPORTANT: render **fields only** (no <form>, no action buttons)
+      renderFields={(form, setForm) => (
+        <Box sx={{ display: "grid", gap: 2 }}>
           <Box
             sx={{
               display: "grid",
@@ -761,23 +760,23 @@ function CreateUserDialog({
           >
             <TextField
               label="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={form.username}
+              onChange={(e) => setForm({ username: e.target.value })}
               required
             />
             <TextField
               label="Email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={form.email ?? ""}
+              onChange={(e) => setForm({ email: e.target.value })}
             />
           </Box>
 
           <TextField
             label="Password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={form.password}
+            onChange={(e) => setForm({ password: e.target.value })}
             required
           />
 
@@ -791,8 +790,10 @@ function CreateUserDialog({
             <TextField
               select
               label="Make Institute Admin"
-              value={makeInstituteAdmin ? "true" : "false"}
-              onChange={(e) => setMakeInstituteAdmin(e.target.value === "true")}
+              value={form.make_institute_admin ? "true" : "false"}
+              onChange={(e) =>
+                setForm({ make_institute_admin: e.target.value === "true" })
+              }
               helperText="Adds the user to the 'institute_admin' group."
             >
               <MenuItem value="true">Yes</MenuItem>
@@ -802,8 +803,10 @@ function CreateUserDialog({
             <TextField
               select
               label="Active"
-              value={isActive ? "true" : "false"}
-              onChange={(e) => setIsActive(e.target.value === "true")}
+              value={form.is_active ? "true" : "false"}
+              onChange={(e) =>
+                setForm({ is_active: e.target.value === "true" })
+              }
             >
               <MenuItem value="true">Active</MenuItem>
               <MenuItem value="false">Inactive</MenuItem>
@@ -812,8 +815,8 @@ function CreateUserDialog({
             <TextField
               select
               label="Staff"
-              value={isStaff ? "true" : "false"}
-              onChange={(e) => setIsStaff(e.target.value === "true")}
+              value={form.is_staff ? "true" : "false"}
+              onChange={(e) => setForm({ is_staff: e.target.value === "true" })}
               helperText="Allows login to Django admin."
             >
               <MenuItem value="true">Yes</MenuItem>
@@ -821,12 +824,12 @@ function CreateUserDialog({
             </TextField>
           </Box>
 
-          {makeInstituteAdmin && (
+          {form.make_institute_admin && (
             <TextField
               select
               label="Institute"
-              value={instituteId}
-              onChange={(e) => setInstituteId(e.target.value)}
+              value={form.institute_id ?? ""}
+              onChange={(e) => setForm({ institute_id: e.target.value })}
               required
             >
               {institutes.map((i) => (
@@ -842,15 +845,6 @@ function CreateUserDialog({
             If <strong>Make Institute Admin</strong> is <em>Yes</em>, an
             institute must be selected.
           </Typography>
-
-          <Box
-            sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}
-          >
-            <Button onClick={onClose}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              Create
-            </Button>
-          </Box>
         </Box>
       )}
     />

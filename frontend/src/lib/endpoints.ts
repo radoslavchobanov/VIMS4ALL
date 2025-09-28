@@ -28,10 +28,15 @@ export const EMPLOYEES_ENDPOINT =
   import.meta.env.VITE_EMPLOYEES_ENDPOINT ?? "/api/employees/";
 export const EMPLOYEE_PHOTO_ENDPOINT = (id: number | string) =>
   `${EMPLOYEES_ENDPOINT}${id}/photo/`;
-export const EMPLOYEE_DEPENDENTS_ENDPOINT = (employeeId: number | string) =>
-  `${EMPLOYEES_ENDPOINT}${employeeId}/dependents/`;
-export const EMPLOYEE_CAREER_ENDPOINT = (employeeId: number | string) =>
-  `${EMPLOYEES_ENDPOINT}${employeeId}/career/`;
+export const EMPLOYEE_DEPENDENTS_ENDPOINT =
+  import.meta.env.VITE_EMPLOYEE_DEPENDENTS_ENDPOINT ??
+  "/api/employee-dependents/";
+export const EMPLOYEE_CAREERS_ENDPOINT =
+  import.meta.env.VITE_EMPLOYEE_CAREERS_ENDPOINT ??
+  "/api/employee-careers/";
+export const EMPLOYEE_FUNCTIONS_ENDPOINT =
+  import.meta.env.VITE_EMPLOYEE_FUNCTIONS_ENDPOINT ??
+  "/api/employee-functions/";
 
 /* ================== Courses ================== */
 export const COURSES_ENDPOINT =

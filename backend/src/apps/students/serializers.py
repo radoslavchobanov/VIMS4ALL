@@ -1,4 +1,7 @@
 from rest_framework import serializers
+
+from apps.courses.models import CourseClass
+
 from .models import Status, Student, StudentCustodian, StudentStatus, AcademicTerm
 from .services.spin import generate_spin
 from .services.photos import ensure_student_photo_or_default
@@ -6,6 +9,20 @@ from .services.terms import get_nearest_term
 from .services.dedup import has_potential_duplicate
 
 from apps.common.media import public_media_url
+
+
+STATUS_TRANSITIONS = {
+    "enquire": {"accepted", "not_accepted"},
+    "accepted": {"no_show", "active"},
+    "no_show": set(),
+    "active": {"retake", "failed", "graduate", "drop_out", "expelled"},
+    "retake": {"active", "failed", "graduate", "drop_out", "expelled"},
+    "failed": {"retake", "drop_out"},
+    "graduate": set(),
+    "drop_out": set(),
+    "expelled": set(),
+    "not_accepted": set(),
+}
 
 
 class StudentReadSerializer(serializers.ModelSerializer):
@@ -195,10 +212,13 @@ class StudentCustodianSerializer(serializers.ModelSerializer):
         return value
 
 
-class StudentStatusSerializer(serializers.ModelSerializer):
+class StudentStatusWriteSerializer(serializers.ModelSerializer):
     student = serializers.PrimaryKeyRelatedField(queryset=Student.all_objects.none())
     term = serializers.PrimaryKeyRelatedField(
         queryset=AcademicTerm.all_objects.none(), allow_null=True, required=False
+    )
+    course_class = serializers.PrimaryKeyRelatedField(
+        queryset=CourseClass.all_objects.none(), allow_null=True, required=False
     )
 
     class Meta:
@@ -208,6 +228,7 @@ class StudentStatusSerializer(serializers.ModelSerializer):
             "student",
             "status",
             "term",
+            "course_class",
             "is_active",
             "note",
             "effective_at",
@@ -225,3 +246,72 @@ class StudentStatusSerializer(serializers.ModelSerializer):
             self.fields["term"].queryset = AcademicTerm.all_objects.filter(
                 institute_id=iid
             )
+            self.fields["course_class"].queryset = CourseClass.all_objects.filter(
+                institute_id=iid
+            )
+
+    def validate(self, attrs):
+        req = self.context["request"]
+        iid = req.user.institute_id
+        student = attrs.get("student")
+        new_status = attrs.get("status")
+        term = attrs.get("term")
+
+        # determine current by is_active first, then latest
+        last = (
+            StudentStatus.all_objects.filter(institute_id=iid, student=student)
+            .order_by("-is_active", "-effective_at", "-id")
+            .first()
+        )
+        current = last.status if last else "enquire"
+
+        allowed = STATUS_TRANSITIONS.get(current, set())
+        if new_status not in allowed:
+            raise serializers.ValidationError(
+                {
+                    "status": f"Transition from '{current}' to '{new_status}' is not allowed."
+                }
+            )
+
+        # Require term for instructional statuses; forbid for others (optional but clean)
+        if new_status in {"active", "retake"}:
+            if term is None:
+                raise serializers.ValidationError(
+                    {"term": "Term is required for ACTIVE/RETAKE."}
+                )
+        else:
+            # optionally normalize: if term was sent, drop it
+            attrs["term"] = None
+
+        return attrs
+
+
+class CourseClassMinSerializer(serializers.ModelSerializer):
+    course_name = serializers.CharField(source="course.name", read_only=True)
+    term_name = serializers.CharField(source="term.name", read_only=True)
+
+    class Meta:
+        model = CourseClass
+        fields = ("id", "name", "course_name", "term_name")
+
+
+class StudentStatusReadSerializer(serializers.ModelSerializer):
+    term = AcademicTermSerializer(read_only=True)
+    term_name = serializers.CharField(source="term.name", read_only=True)
+    course_class = CourseClassMinSerializer(read_only=True)
+    class_name = serializers.CharField(source="course_class.name", read_only=True)
+
+    class Meta:
+        model = StudentStatus
+        fields = (
+            "id",
+            "student",
+            "status",
+            "note",
+            "effective_at",
+            "is_active",
+            "term",
+            "term_name",
+            "course_class",
+            "class_name",
+        )

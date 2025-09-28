@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
+from django.db.models import QuerySet
 
 from .models import Student, StudentCustodian, StudentStatus, AcademicTerm
 from .serializers import (
@@ -10,9 +11,11 @@ from .serializers import (
     StudentPhotoUploadSerializer,
     StudentReadSerializer,
     StudentCustodianSerializer,
-    StudentStatusSerializer,
+    StudentStatusReadSerializer,
+    StudentStatusWriteSerializer,
     StudentWriteSerializer,
     AcademicTermSerializer,
+    STATUS_TRANSITIONS,
 )
 from apps.common.media import public_media_url
 from apps.common.views import ScopedModelViewSet
@@ -110,6 +113,19 @@ class StudentViewSet(ScopedModelViewSet):
             sorted(data, key=lambda x: (x["course_name"], x["class_number"]))
         )
 
+    @action(detail=True, methods=["get"], url_path="statuses/allowed-next")
+    def allowed_next_statuses(self, request, pk=None):
+        iid = self.get_institute_id()
+        qs = StudentStatus.all_objects.filter(institute_id=iid, student_id=pk).order_by(
+            "-effective_at", "-id"
+        )
+
+        # Prefer the active row if it exists
+        current_row = qs.filter(is_active=True).first() or qs.first()
+        current = current_row.status if current_row else "enquire"
+
+        return Response(sorted(STATUS_TRANSITIONS.get(current, set())))
+
 
 class AcademicTermViewSet(ScopedModelViewSet):
     model = AcademicTerm
@@ -125,10 +141,31 @@ class StudentCustodianViewSet(ScopedModelViewSet):
 
 class StudentStatusViewSet(ScopedModelViewSet):
     model = StudentStatus
-    serializer_class = StudentStatusSerializer
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return StudentStatusWriteSerializer
+        return StudentStatusReadSerializer
+
+    def get_queryset(self):
+        qs = (
+            super()
+            .get_queryset()
+            .filter(institute_id=self.get_institute_id())
+            .select_related(
+                "term",
+                "course_class",
+                "course_class__course",
+                "course_class__term",
+            )
+            .order_by("-effective_at", "-id")
+        )
+        sid = self.request.query_params.get("student")
+        if sid:
+            qs = qs.filter(student_id=sid)
+        return qs
 
     def perform_create(self, serializer):
-        # Deactivate previous active; set institute_id on new row
         iid = self.get_institute_id()
         student = serializer.validated_data["student"]
         StudentStatus.all_objects.filter(student=student, is_active=True).update(

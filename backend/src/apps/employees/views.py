@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
+from django.db.models import Q
 
 from apps.common.permissions import HasInstitute
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
@@ -49,8 +50,7 @@ class EmployeeViewSet(ScopedModelViewSet):
         )
 
     @extend_schema(
-        request=EmployeePhotoUploadSerializer,
-        responses={200: EmployeePhotoUploadResponseSerializer},
+        responses={200: EmployeeFunctionSerializer(many=True)}, parameters=[]
     )
     @action(
         detail=True,
@@ -75,6 +75,29 @@ class EmployeeViewSet(ScopedModelViewSet):
         object_key = f"{employee.epin}{ext}"
         employee.photo.save(object_key, file, save=True)
         return Response({"photo_url": getattr(employee.photo, "url", None)}, status=200)
+
+    @action(detail=True, methods=["get"], url_path="functions")
+    def functions(self, request, pk=None):
+        """
+        List functions actually assigned to this employee (distinct).
+        By default: all historical + current.
+        Use ?current=1 to limit to open assignment(s).
+        """
+        iid = self._iid()
+        # ensure the employee belongs to caller's institute
+        if not Employee.all_objects.filter(pk=pk, institute_id=iid).exists():
+            return Response([], status=200)
+
+        qs = EmployeeFunction.objects.filter(
+            Q(institute__isnull=True) | Q(institute_id=iid),
+            assignments__employee_id=pk,
+        )
+        if request.query_params.get("current") in {"1", "true", "True"}:
+            qs = qs.filter(assignments__end_date__isnull=True)
+
+        qs = qs.distinct().only("id", "name", "code")
+        ser = EmployeeFunctionSerializer(qs, many=True)
+        return Response(ser.data, status=200)
 
 
 class OptionallyScopedModelViewSet(viewsets.ModelViewSet):
@@ -126,10 +149,46 @@ class EmployeeFunctionViewSet(OptionallyScopedModelViewSet):
     model = EmployeeFunction
     serializer_class = EmployeeFunctionSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()  # union: GLOBAL ∪ current institute
+        employee_id = self.request.query_params.get("employee")
+        if not employee_id:
+            return qs
+
+        iid = getattr(self.request.user, "institute_id", None)
+        # guard: employee must belong to caller's institute
+        if not Employee.all_objects.filter(pk=employee_id, institute_id=iid).exists():
+            return self.model.objects.none()
+
+        qs = qs.filter(assignments__employee_id=employee_id)
+        if self.request.query_params.get("current") in {"1", "true", "True"}:
+            qs = qs.filter(assignments__end_date__isnull=True)
+
+        return qs.distinct().only("id", "name", "code")
+
 
 class EmployeeCareerViewSet(ScopedModelViewSet):
     model = EmployeeCareer
     serializer_class = EmployeeCareerSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()  # already scoped to request.user.institute_id
+        params = self.request.query_params
+
+        employee_id = params.get("employee")
+        if employee_id:
+            qs = qs.filter(employee_id=employee_id)
+
+        # optional filters (handy for UI)
+        function_id = params.get("function")
+        if function_id:
+            qs = qs.filter(function_id=function_id)
+
+        current = params.get("current")
+        if current in {"1", "true", "True"}:
+            qs = qs.filter(end_date__isnull=True)
+
+        return qs.order_by("-start_date", "-id")
 
 
 class EmployeeDependentViewSet(ScopedModelViewSet):
