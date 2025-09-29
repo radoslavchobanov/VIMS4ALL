@@ -1,14 +1,11 @@
-from decimal import Decimal
-from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
 from apps.common.models import InstituteScopedModel, TimeStampedModel
 
 
 class AccountSection(models.TextChoices):
     REVENUE = "REVENUE", "Revenue"
     EXPENSE = "EXPENSE", "Expense"
-    LIQUID_FUNDS_BANKS = "LFB", "Liquid funds - Banks"  # keep label short, code stable
+    LIQUID_FUNDS_BANKS = "LFB", "Liquid funds - Banks"
 
 
 class FinanceAccountKind(models.TextChoices):

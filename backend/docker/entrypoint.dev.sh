@@ -35,7 +35,7 @@ fi
 python src/manage.py migrate --no-input
 
 # --- Optional: auto-create superuser (dev only) ---
-if [[ "${DJANGO_CREATE_SUPERUSER:-}" == "true" ]]; then
+if [[ "${DJANGO_CREATE_SUPERUSER:-0}" == "1" ]]; then
   python src/manage.py shell <<'PY'
 from django.contrib.auth import get_user_model
 import os

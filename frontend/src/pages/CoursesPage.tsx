@@ -331,6 +331,7 @@ function CoursesForm({
                 } as any)
               }
               inputProps={{ min: 0 }}
+              required
             />
             <TextField
               select

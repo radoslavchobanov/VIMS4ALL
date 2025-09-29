@@ -448,6 +448,7 @@ function EmployeeGeneralTab({
           value={(form as any).date_of_birth ?? ""}
           onChange={(e) => setForm({ date_of_birth: e.target.value } as any)}
           InputLabelProps={{ shrink: true }}
+          required
         />
         <TextField
           label="Entry date"
@@ -1028,13 +1029,13 @@ function EmployeeCareerTab({
         >
           New assignment
         </Button>
-        <Button
+        {/* <Button
           variant="outlined"
           onClick={endCurrent}
           disabled={!openCurrent()}
         >
           End current
-        </Button>
+        </Button> */}
       </Box>
 
       <DataGrid<Career>

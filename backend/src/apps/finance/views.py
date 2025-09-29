@@ -1,6 +1,6 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from drf_spectacular.utils import extend_schema
-from django.db.models import Q, Sum, OuterRef, Subquery, Value
+from django.db.models import Q, Sum, OuterRef, Subquery, Value, ProtectedError
 from django.db.models.functions import Coalesce
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
@@ -18,11 +18,13 @@ from .models import AccountType, FinanceAccount, FinanceLedgerEntry, AccountSect
 from .serializers import (
     AccountTypeSerializer,
     FinanceAccountSerializer,
-    LedgerEntrySerializer,
+    LedgerEntryReadSerializer,
+    LedgerEntryWriteSerializer,
     TransferRequestSerializer,
     TransferResponseSerializer,
 )
 from .services import LedgerService
+
 
 # ---- Permissions composition helpers ----
 
@@ -44,16 +46,22 @@ class AccountTypeViewSet(viewsets.ModelViewSet):
     serializer_class = AccountTypeSerializer
     permission_classes = [AllowReadOnlyOtherwiseSuperuser]
 
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "Cannot delete: category is referenced by ledger entries."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 
 class FinanceAccountViewSet(ScopedModelViewSet):
     model = FinanceAccount
     serializer_class = FinanceAccountSerializer
 
     def get_queryset(self):
-        # Start with the scoped queryset from ScopedModelViewSet (likely filters by institute)
         qs = super().get_queryset()
-
-        # Subquery: sum the ledger amounts for this account within the same institute
         sum_qs = (
             FinanceLedgerEntry.all_objects.filter(
                 account_id=OuterRef("pk"), institute_id=OuterRef("institute_id")
@@ -62,18 +70,16 @@ class FinanceAccountViewSet(ScopedModelViewSet):
             .annotate(b=Coalesce(Sum("amount"), Value(Decimal("0"))))
             .values("b")[:1]
         )
-
         return qs.annotate(balance=Coalesce(Subquery(sum_qs), Value(Decimal("0"))))
 
 
 class LedgerEntryViewSet(ScopedModelViewSet):
     """
     Institute-scoped ledger (cashbook/bankbook).
-    Scoping & institute_id injection are handled by ScopedModelViewSet.
     """
 
     model = FinanceLedgerEntry
-    serializer_class = LedgerEntrySerializer
+    serializer_class = LedgerEntryReadSerializer  # default read
 
     filter_backends = [
         DjangoFilterBackend,
@@ -85,8 +91,27 @@ class LedgerEntryViewSet(ScopedModelViewSet):
     ordering_fields = ["date", "amount", "id"]
     ordering = ["-date", "-id"]
 
+    def get_queryset(self):
+        qs = (
+            super()
+            .get_queryset()
+            .select_related(
+                "account",
+                "category",
+                "debit_finance_account",
+                "credit_finance_account",
+                "debit_category",
+                "credit_category",
+            )
+        )
+        return qs
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return LedgerEntryWriteSerializer
+        return LedgerEntryReadSerializer
+
     def perform_create(self, serializer):
-        # Base class will add institute_id; we add created_by_id
         serializer.save(
             institute_id=self.get_institute_id(),
             created_by_id=str(getattr(self.request.user, "id", "")),
@@ -95,14 +120,20 @@ class LedgerEntryViewSet(ScopedModelViewSet):
     @action(detail=False, methods=["get"], url_path="categories-for-amount")
     def categories_for_amount(self, request):
         """
-        GET ?amount=123.45
+        GET ?amount=<decimal>
         Positive -> REVENUE + LFB
         Negative -> EXPENSE + LFB
         """
+        raw = request.query_params.get("amount")
         try:
-            amount = float(request.query_params.get("amount"))
-        except (TypeError, ValueError):
-            return Response({"detail": "amount query param required"}, status=400)
+            amount = Decimal(raw)
+        except (TypeError, InvalidOperation):
+            return Response(
+                {"detail": "amount query param required (Decimal)."}, status=400
+            )
+
+        if amount == 0:
+            return Response({"detail": "amount cannot be zero"}, status=400)
 
         base = AccountType.objects.filter(is_active=True)
         if amount > 0:
@@ -110,13 +141,11 @@ class LedgerEntryViewSet(ScopedModelViewSet):
                 Q(section=AccountSection.REVENUE)
                 | Q(section=AccountSection.LIQUID_FUNDS_BANKS)
             )
-        elif amount < 0:
+        else:
             qs = base.filter(
                 Q(section=AccountSection.EXPENSE)
                 | Q(section=AccountSection.LIQUID_FUNDS_BANKS)
             )
-        else:
-            return Response({"detail": "amount cannot be zero"}, status=400)
 
         return Response(
             AccountTypeSerializer(qs.order_by("acc_category"), many=True).data
@@ -144,7 +173,6 @@ class LedgerEntryViewSet(ScopedModelViewSet):
             counterparty=data.get("counterparty") or "Internal transfer",
         )
 
-        # compact response (PKs); swap to full serializers if you prefer
         return Response(
             {"out_entry": out_entry.pk, "in_entry": in_entry.pk},
             status=status.HTTP_201_CREATED,
@@ -152,7 +180,6 @@ class LedgerEntryViewSet(ScopedModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="balance")
     def balance(self, request):
-        # Use the escape-hatch manager + explicit iid to avoid double scoping
         iid = self.get_institute_id()
         rows = (
             FinanceLedgerEntry.all_objects.filter(institute_id=iid)

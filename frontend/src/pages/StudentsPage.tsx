@@ -892,7 +892,23 @@ function StudentStatusTab({
 
   const [terms, setTerms] = useState<AcademicTermRead[]>([]);
   const [classes, setClasses] = useState<CourseClassRead[]>([]);
-  const [allowed, setAllowed] = useState<string[] | null>(null); // allowed next statuses
+  const [allowed, setAllowed] = useState<string[] | null>(null);
+  const [allowedLoading, setAllowedLoading] = useState(false);
+
+  const fetchAllowedNext = async () => {
+    setAllowedLoading(true);
+    try {
+      const r = await api.get<string[]>(
+        `${STUDENTS_ENDPOINT}${studentId}/statuses/allowed-next/`,
+        { params: { t: Date.now() } } // cache-buster just in case
+      );
+      setAllowed(r.data ?? null);
+    } catch {
+      setAllowed(null);
+    } finally {
+      setAllowedLoading(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -908,8 +924,16 @@ function StudentStatusTab({
   };
 
   useEffect(() => {
-    load();
+    (async () => {
+      await load();
+      await fetchAllowedNext();
+    })();
   }, [studentId]);
+
+  useEffect(() => {
+    if (rows.length) fetchAllowedNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows[0]?.id, rows[0]?.status]);
 
   useEffect(() => {
     // Load supporting lists; adjust endpoints if different
@@ -1010,7 +1034,9 @@ function StudentStatusTab({
         note: "",
         effective_at: new Date().toISOString().slice(0, 16),
       });
+
       await load();
+      await fetchAllowedNext();
     } catch (e: any) {
       onError(e?.message ?? "Status change failed");
     }
