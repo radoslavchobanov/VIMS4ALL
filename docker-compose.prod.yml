@@ -1,0 +1,85 @@
+x-healthcheck-postgres: &health_pg
+  test:
+    ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost"]
+  interval: 5s
+  timeout: 3s
+  retries: 20
+
+x-healthcheck-minio: &health_minio
+  test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+  interval: 5s
+  timeout: 5s
+  retries: 30
+
+services:
+  db:
+    image: postgres:16
+    env_file: [.env.prod]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:${PROD_PG_PORT:-5423}:5432"
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck: *health_pg
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    env_file: [.env.prod]
+    ports:
+      - "127.0.0.1:${PROD_MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${PROD_MINIO_CONSOLE_PORT:-9101}:9001"
+    volumes:
+      - minio_prod:/data
+    healthcheck: *health_minio
+    restart: unless-stopped
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio: { condition: service_healthy }
+    env_file: [.env.prod]
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      "mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+       mc mb -p local/${MINIO_MEDIA_BUCKET} || true &&
+       mc anonymous set download local/${MINIO_MEDIA_BUCKET} || true &&
+       echo 'Buckets ready'"
+    restart: on-failure
+
+  web:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["/bin/bash", "/app/docker/entrypoint.prod.sh"]
+    env_file: [.env.prod]
+    environment:
+      DJANGO_SETTINGS_MODULE: vims.settings.production
+      DJANGO_ENV_FILE: .env.prod
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /app/src
+    depends_on:
+      db: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      createbuckets: { condition: service_completed_successfully }
+    ports:
+      - "127.0.0.1:${PROD_DJANGO_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:${PROD_FE_PORT:-3000}:80"
+    depends_on:
+      web: { condition: service_started }
+    restart: unless-stopped
+
+volumes:
+  pgdata_prod:
+  minio_prod:
