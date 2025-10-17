@@ -4,7 +4,7 @@ import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "./authS
 type RetriableConfig = AxiosRequestConfig & { _retry?: boolean };
 
 export const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8000",
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: { "Content-Type": "application/json" },
   withCredentials: false, // we use Authorization header, not cookies
 });
