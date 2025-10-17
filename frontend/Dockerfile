@@ -8,6 +8,5 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
-# SPA routing
-RUN sed -i 's#try_files \\$uri \\$uri/ =404;#try_files \\$uri /index.html;#' /etc/nginx/conf.d/default.conf
+RUN sed -i 's#try_files \$uri \$uri/ =404;#try_files \$uri /index.html;#' /etc/nginx/conf.d/default.conf
 EXPOSE 80

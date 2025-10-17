@@ -15,7 +15,7 @@
     "pull:schema": "docker cp $(docker compose ps -q web):/app/openapi.json ./openapi.json",
     "gen:types:offline": "npm run gen:schema && npm run pull:schema && npm run gen:types:file",
     "gen:types": "npm run gen:types:local || npm run gen:types:stdout",
-    "prebuild": "npm run gen:types"
+    "types:dev": "npm run gen:types"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
