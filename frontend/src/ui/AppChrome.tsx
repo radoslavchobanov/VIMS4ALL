@@ -23,7 +23,7 @@ import { useAuth } from "../auth/AuthContext";
 const theme = createTheme({ palette: { mode: "light" } });
 
 const MENU: Array<{ label: string; to: string; roles?: string[] }> = [
-  { label: "Dashboard", to: "/dashboard" },
+  { label: "Home", to: "/home" },
   { label: "Superuser", to: "/admin", roles: ["superuser"] },
   { label: "Students", to: "/students", roles: ["institute_admin"] },
   { label: "Employees", to: "/employees", roles: ["institute_admin"] },
@@ -46,6 +46,7 @@ export default function AppChrome({ children }: PropsWithChildren) {
     await login(u, p);
     setU("");
     setP("");
+    nav("/");
   }
 
   return (

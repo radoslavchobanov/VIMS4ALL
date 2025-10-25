@@ -48,42 +48,33 @@ api.interceptors.response.use(
     const resp = error.response;
     const original = error.config as RetriableConfig | undefined;
 
-    if (!resp || !original) {
-      // network error or no config -> bubble up
+    if (!resp || !original) return Promise.reject(error);
+
+    const status = resp.status;
+    const url = (original.url || "").toString();
+    const isAuthRefresh = url.endsWith("/api/auth/token/refresh/");
+
+    if (status !== 401 || original._retry || isAuthRefresh) {
       return Promise.reject(error);
     }
 
-    // Do not try to refresh if this is the refresh call itself
-    const originalUrl = (original.url || "").toString();
-    const isAuthRefresh = originalUrl.endsWith("/api/auth/token/refresh/");
+    original._retry = true;
 
-    if (resp.status === 401 && !original._retry && !isAuthRefresh) {
-      original._retry = true;
-
+    try {
       if (!refreshing) {
         refreshing = refreshAccess()
           .catch((e) => {
             clearTokens();
             throw e;
           })
-          .finally(() => {
-            // allow the next refresh attempt after this one completes
-            setTimeout(() => (refreshing = null), 0);
-          });
+          .finally(() => { refreshing = null; });
       }
-
-      try {
-        const newAccess = await refreshing;
-        // Ensure the retried request carries the fresh token
-        original.headers = original.headers ?? {};
-        (original.headers as any).Authorization = `Bearer ${newAccess}`;
-        return api(original);
-      } catch (e) {
-        // refresh failed -> propagate original error
-        return Promise.reject(error);
-      }
+      const newAccess = await refreshing;
+      original.headers = original.headers ?? {};
+      (original.headers as any).Authorization = `Bearer ${newAccess}`;
+      return api(original);
+    } catch {
+      return Promise.reject(error);
     }
-
-    return Promise.reject(error);
   }
 );

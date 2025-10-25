@@ -1,20 +1,49 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
 import { api } from "../lib/apiClient";
 import { setTokens, clearTokens, getAccessToken } from "../lib/authStorage";
+
+type EmployeeFn = { id: string; name: string | null };
+type EmployeeCard = {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  function?: EmployeeFn | null;
+  photo_url?: string | null;
+};
+type InstituteCard = {
+  id: string;
+  name?: string | null;
+  abbr_name?: string | null;
+  logo_url?: string | null;
+  city?: string | null;
+  country?: string | null;
+};
 
 type User = {
   id: string;
   username: string;
-  roles: string[]; // e.g., ["superuser"] or ["institute_admin"]
-  institute_id?: string; // used by your APIs
+  email?: string;
+  roles: string[];
+  institute_id?: string | null;
+  employee_id?: string | null;
+  employee?: EmployeeCard | null;
+  institute?: InstituteCard | null;
 };
 
 type AuthContextType = {
   user: User | null;
-  login: (username: string, password: string) => Promise<void>;
+  isAuthenticated: boolean;
+  authReady: boolean; // 👈 hydration flag
+  login: (u: string, p: string) => Promise<void>;
   logout: () => void;
   hasRole: (...roles: string[]) => boolean;
-  isAuthenticated: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -23,42 +52,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
 
-  async function login(username: string, password: string) {
-    const res = await api.post("/api/auth/token/", { username, password });
-    setTokens({ access: res.data.access, refresh: res.data.refresh });
-    // Fetch profile/claims
-    const me = await api.get("/api/auth/me/");
-    setUser(me.data as User);
-  }
+  const hasRole = useCallback(
+    (...roles: string[]) => {
+      const mine = user?.roles ?? [];
+      return roles.some((r) => mine.includes(r));
+    },
+    [user?.roles]
+  );
 
-  function logout() {
+  const login = useCallback(async (username: string, password: string) => {
     clearTokens();
-    setUser(null);
-  }
-
-  function hasRole(...roles: string[]) {
-    if (!user) return false;
-    return roles.some((r) => user.roles.includes(r));
-  }
-
-  // try to hydrate session if a token exists
-  useEffect(() => {
-    const token = getAccessToken();
-    if (!token) return;
-    api
-      .get("/api/auth/me/")
-      .then((r) => setUser(r.data))
-      .catch(() => clearTokens());
+    const { data } = await api.post("/api/auth/token/", { username, password });
+    setTokens({ access: data.access, refresh: data.refresh });
+    const me = await api.get<User>("/api/auth/me/");
+    setUser(me.data);
   }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{ user, login, logout, hasRole, isAuthenticated: !!user }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const logout = useCallback(() => {
+    clearTokens();
+    setUser(null);
+  }, []);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setAuthReady(true);
+      return;
+    }
+    const ctrl = new AbortController();
+    (async () => {
+      try {
+        const me = await api.get<User>("/api/auth/me/", {
+          signal: ctrl.signal,
+        });
+        setUser(me.data);
+      } catch {
+        clearTokens();
+        setUser(null);
+      } finally {
+        setAuthReady(true);
+      }
+    })();
+    return () => ctrl.abort();
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated: !!user,
+      authReady,
+      login,
+      logout,
+      hasRole,
+    }),
+    [user, authReady, login, logout, hasRole]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
