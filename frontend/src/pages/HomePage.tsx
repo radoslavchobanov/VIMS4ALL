@@ -10,33 +10,42 @@ import WorkIcon from "@mui/icons-material/Work";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 
 export default function HomePage() {
-  const { user, hasRole } = useAuth();
+  const { user, hasRole, isAuthenticated, authReady } = useAuth();
   const nav = useNavigate();
 
-  const emp = user?.employee ?? null;
-  const inst = user?.institute ?? null;
+  // show BLANK home when:
+  // - auth not resolved yet
+  // - not authenticated
+  // - authenticated but missing institute
+  const hasInstitute = !!(user?.institute_id || user?.institute);
+  if (!authReady || !isAuthenticated || !hasInstitute) {
+    return null; // blank screen by design
+  }
+
+  const emp = user.employee ?? null;
+  const inst = user.institute ?? null;
 
   return (
     <Box>
-      {/* 1) Profile */}
       <ProfileCard
         firstName={emp?.first_name}
         lastName={emp?.last_name}
         functionName={emp?.function?.name ?? null}
         photoUrl={emp?.photo_url ?? null}
-        username={user?.username}
+        username={user.username}
       />
 
-      {/* 2) Institute (big image) */}
       <Box sx={{ mt: 2 }}>
         <InstituteCard
           name={inst?.name ?? "Your Institute"}
           abbr={inst?.abbr_name ?? inst?.short_name ?? null}
-          imageUrl={inst?.logo_url ?? null} // replace with cover image when you have one
+          imageUrl={inst?.logo_url ?? null}
+          imageHeight={320}
+          imageMaxWidth={1024}
+          sx={{ mx: "auto" }}
         />
       </Box>
 
-      {/* 3) Quick actions */}
       <Box sx={{ mt: 3 }}>
         <Typography variant="overline" color="text.secondary">
           Quick actions
