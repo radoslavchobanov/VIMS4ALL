@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
 from apps.common.generate_pin import generate_pin
+from .services.dedup import has_potential_duplicate_employee
 
 
 class EmployeeFunctionSerializer(serializers.ModelSerializer):
@@ -49,13 +50,7 @@ class EmployeeReadSerializer(serializers.ModelSerializer):
 class EmployeeWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
-        # exclude fields managed server-side or by uploads
-        exclude = [
-            "id",
-            "epin",
-            "created_at",
-            "institute",
-        ]
+        exclude = ["id", "epin", "created_at", "institute"]
 
     def create(self, validated):
         req = self.context["request"]
@@ -63,10 +58,21 @@ class EmployeeWriteSerializer(serializers.ModelSerializer):
         if not iid:
             raise serializers.ValidationError("User has no institute assigned.")
 
-        # required by model
+        # model-required
         for f in ("first_name", "last_name"):
             if not validated.get(f):
                 raise serializers.ValidationError({f: "This field is required."})
+
+        # duplicate guard (active employees only; also checks swapped names)
+        if validated.get("date_of_birth") and has_potential_duplicate_employee(
+            iid,
+            validated["first_name"],
+            validated["last_name"],
+            validated["date_of_birth"],
+        ):
+            raise serializers.ValidationError(
+                "An active employee with the same name and birth date already exists."
+            )
 
         validated["institute_id"] = iid
         validated["epin"] = generate_pin("E", iid, validated["first_name"])

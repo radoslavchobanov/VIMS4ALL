@@ -1,6 +1,6 @@
-# src/apps/students/services/dedup.py
 from typing import Iterable
 from apps.students.models import Status, Student, StudentStatus
+from django.db.models import Q
 
 # Define the “order” from the Access list to express "<= active"
 STATUS_ORDER = {
@@ -23,16 +23,40 @@ DUPLICATE_STATUSES: Iterable[str] = [
 ]
 
 
-def has_potential_duplicate(iid: int, first: str, last: str, dob: str) -> bool:
+def _clean(s: str | None) -> str:
+    return (s or "").strip()
+
+
+ACTIVE_OR_PRIOR = {Status.ENQUIRE, Status.ACCEPTED, Status.ACTIVE}
+
+
+def has_potential_duplicate(
+    institute_id: int, first_name: str, last_name: str, date_of_birth
+) -> bool:
     """
-    A 'duplicate' means: student with same (first,last,dob) in this institute
-    having at least one *active* status among statuses <= ACTIVE (enquire/accepted/no_show/active).
+    Duplicate rule (spec): block creation if a student with the same
+    (first_name, last_name, DOB) already exists in THIS institute
+    AND has an active status in {enquire, accepted, active}.
+    Also guard when first/last names are swapped.
     """
-    return Student.all_objects.filter(
-        institute_id=iid,
-        first_name__iexact=first.strip(),
-        last_name__iexact=last.strip(),
-        date_of_birth=dob,
-        statuses__is_active=True,
-        statuses__status__in=DUPLICATE_STATUSES,
+    fn = _clean(first_name)
+    ln = _clean(last_name)
+
+    # Candidate set by names (normal + swapped) + DOB in the same institute
+    base = Student.all_objects.filter(
+        institute_id=institute_id,
+        date_of_birth=date_of_birth,
+    ).filter(
+        Q(first_name__iexact=fn, last_name__iexact=ln)
+        | Q(first_name__iexact=ln, last_name__iexact=fn)  # swapped
+    )
+
+    if not base.exists():
+        return False
+
+    # Require current status in ACTIVE_OR_PRIOR
+    return StudentStatus.all_objects.filter(
+        student__in=base,
+        is_active=True,
+        status__in=ACTIVE_OR_PRIOR,
     ).exists()
