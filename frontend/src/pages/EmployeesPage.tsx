@@ -20,6 +20,7 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  ManageAccounts as ManageAccountsIcon,
 } from "@mui/icons-material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { api } from "../lib/apiClient";
@@ -34,6 +35,7 @@ import {
   EMPLOYEE_DEPENDENTS_ENDPOINT,
   EMPLOYEE_CAREERS_ENDPOINT,
   EMPLOYEE_FUNCTIONS_ENDPOINT,
+  EMPLOYEE_ACCOUNT_ENDPOINT,
 } from "../lib/endpoints";
 
 /* ================== OpenAPI Types ================== */
@@ -76,12 +78,55 @@ const F = {
 } as const;
 
 /* ================== DataGrid ================== */
-type Row = { epin: string; given_name: string; family_name: string };
+type Row = {
+  id: number | string;
+  epin: string;
+  given_name: string;
+  family_name: string;
+  email: string | null;
+  current_function: string | null;
+  have_system_account: boolean;
+};
 
 const columns: GridColDef<Row>[] = [
-  { field: "epin", headerName: "EPIN", width: 160 },
+  { field: "epin", headerName: "EPIN", width: 150 },
   { field: "given_name", headerName: "Given name", flex: 1, minWidth: 140 },
   { field: "family_name", headerName: "Family name", flex: 1, minWidth: 140 },
+  { field: "email", headerName: "Email", flex: 1.2, minWidth: 200 },
+  {
+    field: "current_function",
+    headerName: "Current function",
+    flex: 1,
+    minWidth: 160,
+    valueGetter: (_v, row) => row.current_function ?? "",
+  },
+  {
+    field: "have_system_account",
+    headerName: "Has account",
+    type: "boolean",
+    width: 120,
+  },
+  {
+    field: "actions",
+    headerName: "",
+    width: 140,
+    sortable: false,
+    filterable: false,
+    renderCell: (p) => (
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={(e) => {
+            e.stopPropagation(); // prevent row click -> edit
+            openAccountModal(p.row); // <-- opens your dialog
+          }}
+        >
+          Account
+        </Button>
+      </Box>
+    ),
+  },
 ];
 
 const today = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -127,6 +172,14 @@ export default function EmployeesPage() {
     msg: string;
   } | null>(null);
 
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountEmp, setAccountEmp] = useState<{
+    id: number | string;
+    fullName: string;
+    email: string | null;
+    have_system_account: boolean;
+  } | null>(null);
+
   async function load() {
     setLoading(true);
     try {
@@ -137,10 +190,14 @@ export default function EmployeesPage() {
       const listData = Array.isArray(r.data) ? r.data : r.data.results ?? [];
       setList(listData);
       setRows(
-        listData.map((e) => ({
-          epin: (e as any)[F.epin] as string,
-          given_name: (e as any)[F.first_name] as string,
-          family_name: (e as any)[F.last_name] as string,
+        listData.map((e: any) => ({
+          id: e.id,
+          epin: e.epin,
+          given_name: e.first_name,
+          family_name: e.last_name,
+          email: e.email ?? null,
+          current_function: e.current_function ?? null,
+          have_system_account: !!e.have_system_account,
         }))
       );
     } finally {
@@ -165,6 +222,57 @@ export default function EmployeesPage() {
     }
   }
 
+  function openAccountModal(row: Row) {
+    setAccountEmp({
+      id: row.id,
+      fullName: `${row.given_name} ${row.family_name}`.trim(),
+      email: row.email,
+      have_system_account: row.have_system_account,
+    });
+    setAccountOpen(true);
+  }
+
+  const columns: GridColDef<Row>[] = [
+    { field: "epin", headerName: "EPIN", width: 150 },
+    { field: "given_name", headerName: "Given name", flex: 1, minWidth: 140 },
+    { field: "family_name", headerName: "Family name", flex: 1, minWidth: 140 },
+    { field: "email", headerName: "Email", flex: 1.2, minWidth: 200 },
+    {
+      field: "current_function",
+      headerName: "Current function",
+      flex: 1,
+      minWidth: 160,
+      valueGetter: (_v, row) => row.current_function ?? "",
+    },
+    {
+      field: "have_system_account",
+      headerName: "Has account",
+      type: "boolean",
+      width: 120,
+    },
+    {
+      field: "actions",
+      headerName: "",
+      width: 72,
+      sortable: false,
+      filterable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (p) => (
+        <IconButton
+          size="small"
+          aria-label="Manage account"
+          onClick={(e) => {
+            e.stopPropagation();
+            openAccountModal(p.row);
+          }}
+        >
+          <ManageAccountsIcon fontSize="small" />
+        </IconButton>
+      ),
+    },
+  ];
+
   return (
     <Paper sx={{ p: 2 }}>
       <Box
@@ -186,7 +294,7 @@ export default function EmployeesPage() {
           rows={rows}
           columns={columns}
           loading={loading}
-          getRowId={(r) => r.epin}
+          getRowId={(r) => r.id}
           pageSizeOptions={[25, 50, 100]}
           onRowClick={(params) => openEditByEPIN((params.row as Row).epin)}
           sx={{ "& .MuiDataGrid-row": { cursor: "pointer" } }}
@@ -225,6 +333,22 @@ export default function EmployeesPage() {
             {toast.msg}
           </Alert>
         </Snackbar>
+      ) : null}
+      {accountEmp ? (
+        <AccountDialog
+          open={accountOpen}
+          employeeId={accountEmp.id}
+          fullName={accountEmp.fullName}
+          email={accountEmp.email}
+          haveAccount={accountEmp.have_system_account}
+          onClose={() => setAccountOpen(false)}
+          onChanged={async (msg) => {
+            setAccountOpen(false);
+            await load();
+            setToast({ severity: "success", msg });
+          }}
+          onError={(m) => setToast({ severity: "error", msg: m })}
+        />
       ) : null}
     </Paper>
   );
@@ -448,7 +572,6 @@ function EmployeeGeneralTab({
           value={(form as any).date_of_birth ?? ""}
           onChange={(e) => setForm({ date_of_birth: e.target.value } as any)}
           InputLabelProps={{ shrink: true }}
-          required
         />
         <TextField
           label="Entry date"
@@ -696,9 +819,7 @@ function EmployeeDependentsTab({
             onClick={async () => {
               if (!window.confirm("Delete this dependent?")) return;
               try {
-                await api.delete(
-                  `${EMPLOYEE_DEPENDENTS_ENDPOINT}${employeeId}/`
-                );
+                await api.delete(`${EMPLOYEE_DEPENDENTS_ENDPOINT}${p.row.id}/`);
                 await load();
               } catch (e: any) {
                 onError(e?.message ?? "Delete failed");
@@ -1127,5 +1248,157 @@ function EmployeeCareerTab({
         </DialogActions>
       </Dialog>
     </Box>
+  );
+}
+
+function AccountDialog({
+  open,
+  employeeId,
+  fullName,
+  email,
+  haveAccount,
+  onClose,
+  onChanged,
+  onError,
+}: {
+  open: boolean;
+  employeeId: number | string;
+  fullName: string;
+  email: string | null;
+  haveAccount: boolean;
+  onClose: () => void;
+  onChanged: (msg: string) => void;
+  onError: (m: string) => void;
+}) {
+  const [mode, setMode] = useState<"email" | "custom">("email");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setMode("email");
+      setUsername("");
+      setPassword("");
+    }
+  }, [open]);
+
+  async function createAccount() {
+    try {
+      if (mode === "email") {
+        if (!email) return onError("This employee has no email.");
+        await api.post(EMPLOYEE_ACCOUNT_ENDPOINT(employeeId), {
+          mode: "email",
+        });
+        onChanged("Account created and credentials emailed.");
+      } else {
+        if (!username || !password)
+          return onError("Username and password are required.");
+        await api.post(EMPLOYEE_ACCOUNT_ENDPOINT(employeeId), {
+          mode: "custom",
+          username,
+          password,
+        });
+        onChanged("Account created.");
+      }
+    } catch (e: any) {
+      onError(
+        e?.response?.data?.detail ?? e?.message ?? "Account creation failed."
+      );
+    }
+  }
+
+  async function resetAccount() {
+    if (
+      !window.confirm(
+        "Reset (delete) the current system account for this employee?"
+      )
+    )
+      return;
+    try {
+      await api.delete(EMPLOYEE_ACCOUNT_ENDPOINT(employeeId));
+      onChanged("Account reset.");
+    } catch (e: any) {
+      onError(e?.response?.data?.detail ?? e?.message ?? "Reset failed.");
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Manage account</DialogTitle>
+      <DialogContent dividers>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          {fullName}
+        </Typography>
+
+        <Box sx={{ display: "grid", gap: 2 }}>
+          <Box>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Create account:
+            </Typography>
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <Button
+                variant={mode === "email" ? "contained" : "outlined"}
+                onClick={() => setMode("email")}
+              >
+                Send an email
+              </Button>
+              <Button
+                variant={mode === "custom" ? "contained" : "outlined"}
+                onClick={() => setMode("custom")}
+              >
+                Create custom
+              </Button>
+            </Box>
+          </Box>
+
+          {mode === "email" && (
+            <Alert severity={email ? "info" : "warning"}>
+              {email
+                ? `An email will be sent to ${email} with username=${email} and a random password.`
+                : "This employee has no email set. You cannot use 'Send an email'."}
+            </Alert>
+          )}
+
+          {mode === "custom" && (
+            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr" }}>
+              <TextField
+                label="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+              <TextField
+                label="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </Box>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: "space-between" }}>
+        <Box>
+          <Button onClick={onClose}>Close</Button>
+        </Box>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button
+            variant="contained"
+            onClick={createAccount}
+            disabled={haveAccount}
+          >
+            Create
+          </Button>
+          <Button
+            color="error"
+            variant="outlined"
+            onClick={resetAccount}
+            disabled={!haveAccount}
+          >
+            Reset account
+          </Button>
+        </Box>
+      </DialogActions>
+    </Dialog>
   );
 }

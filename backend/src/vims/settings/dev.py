@@ -53,7 +53,7 @@ AWS_S3_FILE_OVERWRITE = False
 MEDIA_PUBLIC_BASE = env("MEDIA_PUBLIC_BASE", default=None)
 
 # ---- Dev ergonomics ----
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 # Optional debug toolbar
 if DEBUG:

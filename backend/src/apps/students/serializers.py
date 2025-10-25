@@ -3,13 +3,12 @@ from rest_framework import serializers
 from apps.courses.models import CourseClass
 
 from .models import Status, Student, StudentCustodian, StudentStatus, AcademicTerm
-from .services.spin import generate_spin
 from .services.photos import ensure_student_photo_or_default
 from .services.terms import get_nearest_term
 from .services.dedup import has_potential_duplicate
 
 from apps.common.media import public_media_url
-
+from apps.common.generate_pin import generate_pin
 
 STATUS_TRANSITIONS = {
     "enquire": {"accepted", "not_accepted"},
@@ -100,12 +99,7 @@ class StudentWriteSerializer(serializers.ModelSerializer):
             )
 
         validated_data["institute_id"] = iid
-        validated_data["spin"] = generate_spin(
-            iid,
-            validated_data["first_name"],
-            validated_data["last_name"],
-            validated_data["date_of_birth"],
-        )
+        validated_data["spin"] = generate_pin("S", iid, validated_data["first_name"])
 
         student = super().create(validated_data)
 

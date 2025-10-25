@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.db.models import Q
+from django.conf import settings
 from apps.common.models import InstituteScopedModel, OptionallyScopedModel
 from apps.employees.managers import EmployeeScopedManager
 
@@ -21,7 +22,7 @@ class Employee(InstituteScopedModel):
     # mandatory
     first_name = models.CharField(max_length=120)
     last_name = models.CharField(max_length=120)
-    date_of_birth = models.DateField()
+    date_of_birth = models.DateField(null=True, blank=True)
 
     gender = models.CharField(
         max_length=12, choices=Gender.choices, null=True, blank=True
@@ -57,6 +58,18 @@ class Employee(InstituteScopedModel):
 
     objects = EmployeeScopedManager()
     all_objects = models.Manager()
+
+    system_user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="employee_profile",
+    )
+
+    @property
+    def have_system_account(self) -> bool:
+        return self.system_user_id is not None
 
     class Meta:
         constraints = [

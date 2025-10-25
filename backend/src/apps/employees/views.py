@@ -4,12 +4,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
+from rest_framework import status
 from drf_spectacular.utils import extend_schema
-from django.db.models import Q
+from django.db.models import Q, OuterRef, Subquery
+from django.conf import settings
 
-from apps.common.permissions import HasInstitute
+from apps.common.permissions import HasInstitute, HasEmployeeFunctionCode
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
 from .serializers import (
+    EmployeeListSerializer,
     EmployeeReadSerializer,
     EmployeeWriteSerializer,
     EmployeePhotoUploadSerializer,
@@ -17,6 +20,12 @@ from .serializers import (
     EmployeeFunctionSerializer,
     EmployeeCareerSerializer,
     EmployeeDependentSerializer,
+)
+from .services.accounts import (
+    create_employee_account_custom,
+    create_employee_account_send_email,
+    create_employee_account_invite,
+    reset_employee_account,
 )
 
 
@@ -43,11 +52,31 @@ class EmployeeViewSet(ScopedModelViewSet):
     model = Employee
 
     def get_serializer_class(self):
-        return (
-            EmployeeWriteSerializer
-            if self.action in ("create", "update", "partial_update")
-            else EmployeeReadSerializer
-        )
+        if self.action in ("create", "update", "partial_update"):
+            return EmployeeWriteSerializer
+        if self.action == "list":
+            return EmployeeListSerializer
+        return EmployeeReadSerializer
+
+    def get_permissions(self):
+        base = [p() for p in self.permission_classes]
+        # include the merged action name here
+        if self.action in {"account", "create_account", "reset_account"}:
+            self.required_function_codes = getattr(
+                settings,
+                "ACCOUNT_MGMT_ALLOWED_FUNCTION_CODES",
+                {"director", "registrar"},
+            )
+            base.append(HasEmployeeFunctionCode())
+        return base
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # annotate current function name for performance
+        open_fun = EmployeeCareer.all_objects.filter(
+            employee_id=OuterRef("pk"), end_date__isnull=True
+        ).values("function__name")[:1]
+        return qs.annotate(_current_function_name=Subquery(open_fun))
 
     @extend_schema(
         responses={200: EmployeeFunctionSerializer(many=True)}, parameters=[]
@@ -98,6 +127,76 @@ class EmployeeViewSet(ScopedModelViewSet):
         qs = qs.distinct().only("id", "name", "code")
         ser = EmployeeFunctionSerializer(qs, many=True)
         return Response(ser.data, status=200)
+
+    @action(detail=True, methods=["post", "delete"], url_path="account")
+    def account(self, request, pk=None):
+        """
+        POST -> create account (email/custom)
+        DELETE -> reset account
+        """
+        employee = self.get_object()
+
+        if request.method == "DELETE":
+            try:
+                reset_employee_account(employee=employee)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            except ValueError as e:
+                # already superuser / no account, etc.
+                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # POST (create)
+        data = request.data or {}
+        mode = str(data.get("mode", "")).lower()
+
+        # Optional: idempotency fast-path
+        if employee.system_user_id:
+            return Response(
+                {
+                    "detail": "Employee already has a system account.",
+                    "user_id": employee.system_user_id,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        try:
+            if mode == "email":
+                res = create_employee_account_send_email(employee=employee)
+                return Response(
+                    {
+                        "user_id": res.user_id,
+                        "username": res.username,
+                        "email_sent": True,
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+
+            if mode == "custom":
+                username = (data.get("username") or "").strip().lower()
+                password = data.get("password")
+                if not username or not password:
+                    return Response(
+                        {
+                            "detail": "username and password are required in custom mode."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                res = create_employee_account_custom(
+                    employee=employee, username=username, password=password
+                )
+                # If product requires showing the temp password, keep it; otherwise remove it.
+                return Response(
+                    {
+                        "user_id": res.user_id,
+                        "username": res.username,
+                        "password": res.temporary_password,  # consider removing in future
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+
+            return Response({"detail": "mode must be 'email' or 'custom'."}, status=400)
+
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class OptionallyScopedModelViewSet(viewsets.ModelViewSet):

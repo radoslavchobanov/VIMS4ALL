@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
-from .services.epin import generate_epin
+from apps.common.generate_pin import generate_pin
 
 
 class EmployeeFunctionSerializer(serializers.ModelSerializer):
@@ -64,17 +64,12 @@ class EmployeeWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("User has no institute assigned.")
 
         # required by model
-        for f in ("first_name", "last_name", "date_of_birth"):
+        for f in ("first_name", "last_name"):
             if not validated.get(f):
                 raise serializers.ValidationError({f: "This field is required."})
 
         validated["institute_id"] = iid
-        validated["epin"] = generate_epin(
-            iid,
-            validated["first_name"],
-            validated["last_name"],
-            validated["date_of_birth"],
-        )
+        validated["epin"] = generate_pin("E", iid, validated["first_name"])
         return super().create(validated)
 
 
@@ -152,3 +147,30 @@ class EmployeeDependentSerializer(serializers.ModelSerializer):
             self.fields["employee"].queryset = Employee.all_objects.filter(
                 institute_id=req.user.institute_id
             )
+
+
+class EmployeeListSerializer(serializers.ModelSerializer):
+    current_function = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Employee
+        fields = [
+            "id",
+            "epin",
+            "first_name",
+            "last_name",
+            "email",
+            "current_function",
+            "have_system_account",
+        ]
+
+    def get_current_function(self, obj):
+        cf = getattr(obj, "_current_function_name", None)
+        if cf is not None:
+            return cf
+        row = (
+            EmployeeCareer.all_objects.filter(employee_id=obj.id, end_date__isnull=True)
+            .select_related("function")
+            .first()
+        )
+        return row.function.name if row else None

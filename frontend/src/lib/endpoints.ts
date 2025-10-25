@@ -37,6 +37,8 @@ export const EMPLOYEE_CAREERS_ENDPOINT =
 export const EMPLOYEE_FUNCTIONS_ENDPOINT =
   import.meta.env.VITE_EMPLOYEE_FUNCTIONS_ENDPOINT ??
   "/api/employee-functions/";
+export const EMPLOYEE_ACCOUNT_ENDPOINT = (id: number | string) =>
+  `${EMPLOYEES_ENDPOINT}${id}/account/`;
 
 /* ================== Courses ================== */
 export const COURSES_ENDPOINT =

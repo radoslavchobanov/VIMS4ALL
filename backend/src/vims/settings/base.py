@@ -162,3 +162,20 @@ AWS_DEFAULT_ACL = None
 
 # Internationalization
 LANGUAGE_CODE = "en-us"
+
+# --- Email backend (Plesk SMTP) ---
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.getenv("EMAIL_HOST", "mail.vims4all.eu")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"  # STARTTLS on 587
+EMAIL_USE_SSL = False  # don't set both TLS and SSL
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "15"))
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "VIMS <service@vims4all.eu>")
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", "service@vims4all.eu")  # error emails
+# Optional niceties
+EMAIL_SUBJECT_PREFIX = "[VIMS] "
+
+# --- Permissions ---
+ACCOUNT_MGMT_ALLOWED_FUNCTION_CODES = {"director", "registrar"}
