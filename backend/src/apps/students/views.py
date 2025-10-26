@@ -1,9 +1,12 @@
 from pathlib import Path
+from rest_framework import status as drf_status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 from django.db.models import QuerySet
+from django.http import HttpResponse
+from openpyxl import Workbook
 
 from .models import Student, StudentCustodian, StudentStatus, AcademicTerm
 from .serializers import (
@@ -17,6 +20,7 @@ from .serializers import (
     AcademicTermSerializer,
     STATUS_TRANSITIONS,
 )
+from .services.import_xlsx import import_students_xlsx, CANONICAL_COLUMNS
 from apps.common.media import public_media_url
 from apps.common.views import ScopedModelViewSet
 
@@ -125,6 +129,82 @@ class StudentViewSet(ScopedModelViewSet):
         current = current_row.status if current_row else "enquire"
 
         return Response(sorted(STATUS_TRANSITIONS.get(current, set())))
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import-xlsx",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def import_xlsx(self, request):
+        """
+        POST /api/students/import-xlsx?commit=0|1&atomic=0|1
+
+        - commit=0 (default): dry-run (validate only)
+        - commit=1: create records
+        - atomic=1 with commit=1 makes it all-or-nothing
+        """
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"detail": "Upload a file as 'file'."}, status=400)
+
+        commit = request.query_params.get("commit", "0").lower() in {"1", "true", "yes"}
+        atomic = request.query_params.get("atomic", "0").lower() in {"1", "true", "yes"}
+
+        if commit and atomic:
+            # A single transaction for the whole file:
+            from django.db import transaction
+
+            with transaction.atomic():
+                payload = import_students_xlsx(request, file, commit=True, atomic=True)
+        else:
+            payload = import_students_xlsx(request, file, commit=commit, atomic=False)
+
+        return Response(payload, status=drf_status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path="import-template")
+    def import_template(self, request):
+        """
+        GET /api/students/import-template
+        Returns a simple XLSX with the expected columns and one example row.
+        """
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "students"
+        ws.append(CANONICAL_COLUMNS)
+        # example row (only required fields filled)
+        ws.append(
+            [
+                "John",
+                "Doe",
+                "2006-09-15",  # first_name,last_name,date_of_birth(ISO)
+                "male",
+                "single",
+                "5551234567",
+                "john.doe@example.com",
+                "American",
+                "ID123456",
+                "Lincoln High School",
+                "10th grade",
+                "Seattle",
+                "Washington",
+                "King County",
+                "",
+                "",
+                "2023-09-15",
+                "",
+                "Imported via bulk",
+            ]
+        )
+
+        resp = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        resp["Content-Disposition"] = (
+            'attachment; filename="students_import_template.xlsx"'
+        )
+        wb.save(resp)
+        return resp
 
 
 class AcademicTermViewSet(ScopedModelViewSet):

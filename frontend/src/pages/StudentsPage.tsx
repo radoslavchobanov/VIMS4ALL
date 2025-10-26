@@ -15,11 +15,16 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  LinearProgress,
+  Tooltip,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 
 import { api } from "../lib/apiClient";
 import type { components } from "../api/__generated__/vims-types";
@@ -33,6 +38,8 @@ import {
   STUDENT_PHOTO_ENDPOINT,
   STUDENT_CUSTODIANS_ENDPOINT,
   STUDENT_STATUS_ENDPOINT,
+  STUDENT_IMPORT_XLSX_ENDPOINT,
+  STUDENT_IMPORT_TEMPLATE_ENDPOINT,
   TERMS_ENDPOINT,
   COURSE_CLASSES_COLLECTION_ENDPOINT,
 } from "../lib/endpoints";
@@ -69,6 +76,7 @@ export default function StudentsPage() {
   const [list, setList] = useState<StudentRead[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [openImport, setOpenImport] = useState(false);
 
   // single dialog for create/edit
   const [openForm, setOpenForm] = useState(false);
@@ -129,9 +137,18 @@ export default function StudentsPage() {
         }}
       >
         <Typography variant="h6">Students</Typography>
-        <Button variant="contained" onClick={openCreate}>
-          Create Student
-        </Button>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            onClick={() => setOpenImport(true)}
+          >
+            Import XLSX
+          </Button>
+          <Button variant="contained" onClick={openCreate}>
+            Create Student
+          </Button>
+        </Box>
       </Box>
 
       <div style={{ height: 600, width: "100%" }}>
@@ -159,6 +176,23 @@ export default function StudentsPage() {
           setOpenForm(false);
           load();
           setToast({ severity: "success", msg: "Student updated" });
+        }}
+        onError={(m) => setToast({ severity: "error", msg: m })}
+      />
+
+      <ImportStudentsDialog
+        open={openImport}
+        onClose={() => setOpenImport(false)}
+        onImported={(summary) => {
+          setOpenImport(false);
+          load(); // refresh grid
+          setToast({
+            severity: summary.created > 0 ? "success" : "info",
+            msg:
+              summary.created > 0
+                ? `Imported ${summary.created} students`
+                : "Validation completed (no records created)",
+          });
         }}
         onError={(m) => setToast({ severity: "error", msg: m })}
       />
@@ -341,6 +375,268 @@ function StudentsForm({
         </>
       )}
     />
+  );
+}
+
+/* =============================================================================
+   IMPORT STUDENTS — DIALOG
+============================================================================= */
+type ImportRowOutcome = {
+  row_number: number;
+  action: "validated" | "created" | "skipped" | "error";
+  errors?: Record<string, any> | null;
+  instance_id?: number | null;
+};
+type ImportSummary = {
+  created: number;
+  validated: number;
+  skipped: number;
+  errors: number;
+  total_rows: number;
+  commit: boolean;
+  atomic: boolean;
+};
+type ImportResponse = {
+  summary: ImportSummary;
+  rows: ImportRowOutcome[];
+  expected_columns: string[];
+};
+
+export function ImportStudentsDialog({
+  open,
+  onClose,
+  onImported,
+  onError,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onImported: (summary: ImportSummary) => void;
+  onError: (msg: string) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "validating" | "importing">(
+    "idle"
+  );
+  const [result, setResult] = useState<ImportResponse | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setFile(null);
+      setBusy(false);
+      setPhase("idle");
+      setResult(null);
+    }
+  }, [open]);
+
+  const templateUrl = `${
+    api.defaults.baseURL ?? ""
+  }${STUDENT_IMPORT_TEMPLATE_ENDPOINT}`;
+
+  function formatErrors(errs?: Record<string, any> | null): string {
+    if (!errs) return "";
+    try {
+      const parts: string[] = [];
+      Object.entries(errs).forEach(([k, v]) => {
+        const val = Array.isArray(v)
+          ? v.join(", ")
+          : typeof v === "object"
+          ? JSON.stringify(v)
+          : String(v);
+        parts.push(`${k}: ${val}`);
+      });
+      return parts.join(" | ");
+    } catch {
+      return JSON.stringify(errs);
+    }
+  }
+
+  async function handleImport() {
+    if (!file) {
+      onError("Please choose an .xlsx file.");
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      onError("Only .xlsx files are supported.");
+      return;
+    }
+
+    setBusy(true);
+    setPhase("validating");
+    setResult(null);
+
+    try {
+      const buildForm = () => {
+        const f = new FormData();
+        f.append("file", file);
+        return f;
+      };
+
+      // 1) DRY-RUN VALIDATION
+      const validateRes = await api.post<ImportResponse>(
+        STUDENT_IMPORT_XLSX_ENDPOINT,
+        buildForm(),
+        {
+          params: { commit: 0 },
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+
+      const validation = validateRes.data;
+      // Show validation result regardless
+      setResult(validation);
+
+      if (validation.summary.errors > 0) {
+        // Stop here; user sees errors table
+        setBusy(false);
+        setPhase("idle");
+        return;
+      }
+
+      // 2) IMPORT (row-by-row; no atomic toggle in this UX)
+      setPhase("importing");
+      const importRes = await api.post<ImportResponse>(
+        STUDENT_IMPORT_XLSX_ENDPOINT,
+        buildForm(),
+        {
+          params: { commit: 1 },
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+
+      const imported = importRes.data;
+      setResult(imported);
+      setBusy(false);
+      setPhase("idle");
+      onImported(imported.summary);
+    } catch (e: any) {
+      setBusy(false);
+      setPhase("idle");
+      onError(e?.response?.data?.detail ?? e?.message ?? "Import failed");
+    }
+  }
+
+  const hasResult = !!result;
+  const isValidating = phase === "validating";
+  const isImporting = phase === "importing";
+
+  const cols: GridColDef<ImportRowOutcome>[] = [
+    { field: "row_number", headerName: "Row", width: 90 },
+    { field: "action", headerName: "Action", width: 120 },
+    {
+      field: "errors",
+      headerName: "Errors",
+      flex: 1,
+      minWidth: 320,
+      valueGetter: (_v, row) => formatErrors(row.errors),
+    },
+    {
+      field: "instance_id",
+      headerName: "Student ID",
+      width: 120,
+      valueGetter: (_v, row) => row.instance_id ?? "",
+    },
+  ];
+
+  const summary = result?.summary;
+  const summarySeverity = !summary
+    ? "info"
+    : summary.commit
+    ? summary.errors > 0
+      ? ("warning" as const)
+      : ("success" as const)
+    : summary.errors > 0
+    ? ("warning" as const)
+    : ("info" as const);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={busy ? undefined : onClose}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle>Import Students (.xlsx)</DialogTitle>
+      <DialogContent dividers>
+        <Box sx={{ display: "grid", gap: 2 }}>
+          <Alert severity="info">
+            Required columns: <code>first_name</code>, <code>last_name</code>,{" "}
+            <code>date_of_birth</code> (YYYY-MM-DD). Optional columns are
+            supported and ignored if missing.
+          </Alert>
+
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+            <Button
+              variant="text"
+              onClick={() => window.open(templateUrl, "_blank")}
+              startIcon={<UploadFileIcon />}
+            >
+              Download template
+            </Button>
+
+            <Tooltip title=".xlsx only">
+              <label>
+                <input
+                  type="file"
+                  accept=".xlsx"
+                  style={{ display: "none" }}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+                <Button variant="outlined" component="span">
+                  {file ? file.name : "Students.xlsx"}
+                </Button>
+              </label>
+            </Tooltip>
+          </Box>
+
+          {(isValidating || isImporting) && <LinearProgress />}
+
+          {hasResult && (
+            <>
+              <Alert severity={summarySeverity as any}>
+                <strong>Summary</strong>: created {summary!.created}, validated{" "}
+                {summary!.validated}, skipped {summary!.skipped}, errors{" "}
+                {summary!.errors}. Total rows: {summary!.total_rows}.{" "}
+                {summary!.commit ? "Import mode." : "Validation result."}
+                {isValidating &&
+                  summary!.errors === 0 &&
+                  " Validation passed — proceeding to import..."}
+              </Alert>
+
+              <div style={{ width: "100%" }}>
+                <DataGrid<ImportRowOutcome>
+                  autoHeight
+                  rows={result!.rows}
+                  getRowId={(r) => r.row_number}
+                  columns={cols}
+                  disableRowSelectionOnClick
+                  initialState={{
+                    pagination: { paginationModel: { page: 0, pageSize: 25 } },
+                  }}
+                  pageSizeOptions={[25, 50, 100]}
+                />
+              </div>
+            </>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={busy}>
+          Close
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleImport}
+          disabled={busy || !file}
+        >
+          {isValidating
+            ? "Validating..."
+            : isImporting
+            ? "Importing..."
+            : "Import"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 

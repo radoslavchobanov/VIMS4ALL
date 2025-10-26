@@ -25,17 +25,19 @@ export const AUTH_ME_ENDPOINT =
 /* ================== Students ================== */
 export const STUDENTS_ENDPOINT =
   import.meta.env.VITE_STUDENTS_ENDPOINT ?? "/api/students/";
-
 export const STUDENT_PHOTO_ENDPOINT = (id: number | string) =>
   `${STUDENTS_ENDPOINT}${id}/photo/`;
-
-// FLAT resources (filter by ?student=ID)
 export const STUDENT_CUSTODIANS_ENDPOINT =
   import.meta.env.VITE_STUDENT_CUSTODIANS_ENDPOINT ??
   "/api/student-custodians/";
 export const STUDENT_STATUS_ENDPOINT =
   import.meta.env.VITE_STUDENT_STATUS_ENDPOINT ?? "/api/student-statuses/";
-
+export const STUDENT_IMPORT_XLSX_ENDPOINT =
+  import.meta.env.VITE_STUDENT_IMPORT_XLSX_ENDPOINT ??
+  "/api/students/import-xlsx/";
+  export const STUDENT_IMPORT_TEMPLATE_ENDPOINT =
+  import.meta.env.VITE_STUDENT_IMPORT_TEMPLATE_ENDPOINT ??
+  "/api/students/import-template/";
 
 /* ================== Employees ================== */
 export const EMPLOYEES_ENDPOINT =
