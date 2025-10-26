@@ -1,4 +1,3 @@
-# vims/views_auth.py
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, AnonymousUser
 from rest_framework.views import APIView
@@ -27,17 +26,6 @@ def _abs_from_key(request, storage_key: str | None) -> str | None:
     if not url:
         return None
     return url if url.startswith("http") else request.build_absolute_uri(url)
-
-
-def _abs_from_filefield(request, filefield) -> str | None:
-    """Image/FileField to absolute URL; tolerant to missing."""
-    if not filefield:
-        return None
-    try:
-        url = getattr(filefield, "url", None)
-        return request.build_absolute_uri(url) if url else None
-    except Exception:
-        return None
 
 
 class MeView(APIView):
@@ -114,7 +102,7 @@ class MeView(APIView):
                 "last_name": emp.last_name,
                 "function": func_payload,
                 # if you have a photo field on Employee, this will resolve; else stays None
-                "photo_url": _abs_from_filefield(request, getattr(emp, "photo", None)),
+                "photo_url": _abs_from_key(request, emp.photo.name),
             }
 
         data = {

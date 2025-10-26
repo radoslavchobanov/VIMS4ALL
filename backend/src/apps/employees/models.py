@@ -23,6 +23,7 @@ class Employee(InstituteScopedModel):
     first_name = models.CharField(max_length=120)
     last_name = models.CharField(max_length=120)
     date_of_birth = models.DateField(null=True, blank=True)
+    photo = models.ImageField(upload_to="students/", null=True, blank=True)
 
     gender = models.CharField(
         max_length=12, choices=Gender.choices, null=True, blank=True

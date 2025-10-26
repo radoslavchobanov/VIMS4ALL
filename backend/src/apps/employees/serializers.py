@@ -1,7 +1,9 @@
 from rest_framework import serializers
+
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
 from apps.common.generate_pin import generate_pin
 from .services.dedup import has_potential_duplicate_employee
+from apps.common.media import public_media_url
 
 
 class EmployeeFunctionSerializer(serializers.ModelSerializer):
@@ -16,6 +18,7 @@ class EmployeeFunctionSerializer(serializers.ModelSerializer):
 
 
 class EmployeeReadSerializer(serializers.ModelSerializer):
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
@@ -43,27 +46,28 @@ class EmployeeReadSerializer(serializers.ModelSerializer):
             "exit_date",
             "comments",
             "created_at",
+            "photo_url",
         ]
-        read_only_fields = ["epin", "created_at"]
+        read_only_fields = ["epin", "created_at", "photo_url"]
+
+    def get_photo_url(self, obj):
+        key = getattr(getattr(obj, "photo", None), "name", None)
+        return public_media_url(key) if key else None
 
 
 class EmployeeWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
-        exclude = ["id", "epin", "created_at", "institute"]
+        exclude = ["id", "epin", "created_at", "institute", "photo"]
 
     def create(self, validated):
         req = self.context["request"]
         iid = getattr(req.user, "institute_id", None)
         if not iid:
             raise serializers.ValidationError("User has no institute assigned.")
-
-        # model-required
         for f in ("first_name", "last_name"):
             if not validated.get(f):
                 raise serializers.ValidationError({f: "This field is required."})
-
-        # duplicate guard (active employees only; also checks swapped names)
         if validated.get("date_of_birth") and has_potential_duplicate_employee(
             iid,
             validated["first_name"],
@@ -73,7 +77,6 @@ class EmployeeWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "An active employee with the same name and birth date already exists."
             )
-
         validated["institute_id"] = iid
         validated["epin"] = generate_pin("E", iid, validated["first_name"])
         return super().create(validated)
@@ -157,6 +160,7 @@ class EmployeeDependentSerializer(serializers.ModelSerializer):
 
 class EmployeeListSerializer(serializers.ModelSerializer):
     current_function = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
@@ -168,6 +172,7 @@ class EmployeeListSerializer(serializers.ModelSerializer):
             "email",
             "current_function",
             "have_system_account",
+            "photo_url",
         ]
 
     def get_current_function(self, obj):
@@ -180,3 +185,7 @@ class EmployeeListSerializer(serializers.ModelSerializer):
             .first()
         )
         return row.function.name if row else None
+
+    def get_photo_url(self, obj):
+        key = getattr(getattr(obj, "photo", None), "name", None)
+        return public_media_url(key) if key else None

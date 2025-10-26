@@ -8,6 +8,20 @@ export const INSTITUTE_LOGO_ENDPOINT = (id: number | string) =>
 export const USERS_ENDPOINT =
   import.meta.env.VITE_USERS_ENDPOINT ?? "/api/admin/accounts/";
 
+
+  /* ================== Auth ================== */
+export const AUTH_BASE =
+  import.meta.env.VITE_AUTH_BASE ?? "/api/auth/";
+
+export const AUTH_TOKEN_ENDPOINT =
+  import.meta.env.VITE_AUTH_TOKEN_ENDPOINT ?? `${AUTH_BASE}token/`;
+
+export const AUTH_REFRESH_ENDPOINT =
+  import.meta.env.VITE_AUTH_REFRESH_ENDPOINT ?? `${AUTH_BASE}token/refresh/`;
+
+export const AUTH_ME_ENDPOINT =
+  import.meta.env.VITE_AUTH_ME_ENDPOINT ?? `${AUTH_BASE}me/`;
+
 /* ================== Students ================== */
 export const STUDENTS_ENDPOINT =
   import.meta.env.VITE_STUDENTS_ENDPOINT ?? "/api/students/";

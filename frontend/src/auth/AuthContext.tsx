@@ -8,6 +8,7 @@ import {
 } from "react";
 import { api } from "../lib/apiClient";
 import { setTokens, clearTokens, getAccessToken } from "../lib/authStorage";
+import { AUTH_TOKEN_ENDPOINT, AUTH_ME_ENDPOINT } from "../lib/endpoints";
 
 type EmployeeFn = { id: string; name: string | null };
 type EmployeeCard = {
@@ -40,10 +41,11 @@ type User = {
 type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
-  authReady: boolean; // 👈 hydration flag
+  authReady: boolean;
   login: (u: string, p: string) => Promise<void>;
   logout: () => void;
   hasRole: (...roles: string[]) => boolean;
+  refreshMe: (signal?: AbortSignal) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -64,9 +66,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = useCallback(async (username: string, password: string) => {
     clearTokens();
-    const { data } = await api.post("/api/auth/token/", { username, password });
+    const { data } = await api.post(AUTH_TOKEN_ENDPOINT, {
+      username,
+      password,
+    });
     setTokens({ access: data.access, refresh: data.refresh });
-    const me = await api.get<User>("/api/auth/me/");
+    const me = await api.get<User>(AUTH_ME_ENDPOINT);
+    setUser(me.data);
+  }, []);
+
+  const refreshMe = useCallback(async (signal?: AbortSignal) => {
+    const me = await api.get<User>(AUTH_ME_ENDPOINT, { signal });
     setUser(me.data);
   }, []);
 
@@ -84,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const ctrl = new AbortController();
     (async () => {
       try {
-        const me = await api.get<User>("/api/auth/me/", {
+        const me = await api.get<User>(AUTH_ME_ENDPOINT, {
           signal: ctrl.signal,
         });
         setUser(me.data);
@@ -106,8 +116,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       login,
       logout,
       hasRole,
+      refreshMe,
     }),
-    [user, authReady, login, logout, hasRole]
+    [user, authReady, login, logout, hasRole, refreshMe]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

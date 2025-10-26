@@ -88,77 +88,6 @@ type Row = {
   have_system_account: boolean;
 };
 
-const columns: GridColDef<Row>[] = [
-  { field: "epin", headerName: "EPIN", width: 150 },
-  { field: "given_name", headerName: "Given name", flex: 1, minWidth: 140 },
-  { field: "family_name", headerName: "Family name", flex: 1, minWidth: 140 },
-  { field: "email", headerName: "Email", flex: 1.2, minWidth: 200 },
-  {
-    field: "current_function",
-    headerName: "Current function",
-    flex: 1,
-    minWidth: 160,
-    valueGetter: (_v, row) => row.current_function ?? "",
-  },
-  {
-    field: "have_system_account",
-    headerName: "Has account",
-    type: "boolean",
-    width: 120,
-  },
-  {
-    field: "actions",
-    headerName: "",
-    width: 140,
-    sortable: false,
-    filterable: false,
-    renderCell: (p) => (
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={(e) => {
-            e.stopPropagation(); // prevent row click -> edit
-            openAccountModal(p.row); // <-- opens your dialog
-          }}
-        >
-          Account
-        </Button>
-      </Box>
-    ),
-  },
-];
-
-const today = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
-function confirmAction(msg: string) {
-  return window.confirm(msg);
-}
-
-/* ================== Helpers ================== */
-// CREATE: skip "" and undefined
-function normalizeCreate<T extends Record<string, unknown>>(
-  obj: T
-): Partial<T> {
-  const out: Partial<T> = {};
-  (Object.keys(obj) as (keyof T)[]).forEach((k) => {
-    const v = obj[k];
-    if (v !== "" && v !== undefined) out[k] = v as any;
-  });
-  return out;
-}
-
-// PATCH: convert "" → null, drop only undefined (so clears work)
-function toNullPatch<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const out: Partial<T> = {};
-  (Object.keys(obj) as (keyof T)[]).forEach((k) => {
-    const v = obj[k];
-    if (v === undefined) return;
-    out[k] = (v === "" ? null : v) as any;
-  });
-  return out;
-}
-
 /* ================== Page ================== */
 export default function EmployeesPage() {
   const [list, setList] = useState<EmployeeRead[]>([]);
@@ -212,6 +141,18 @@ export default function EmployeesPage() {
   function openCreate() {
     setInitial(undefined);
     setOpenForm(true);
+  }
+
+  async function openEditById(id: number | string) {
+    try {
+      const { data } = await api.get<EmployeeRead>(
+        `${EMPLOYEES_ENDPOINT}${id}/`
+      );
+      setInitial(data as any);
+      setOpenForm(true);
+    } catch (e: any) {
+      console.error(e);
+    }
   }
 
   function openEditByEPIN(epin: string) {
@@ -296,7 +237,7 @@ export default function EmployeesPage() {
           loading={loading}
           getRowId={(r) => r.id}
           pageSizeOptions={[25, 50, 100]}
-          onRowClick={(params) => openEditByEPIN((params.row as Row).epin)}
+          onRowClick={(params) => openEditById(params.row.id)}
           sx={{ "& .MuiDataGrid-row": { cursor: "pointer" } }}
         />
       </div>

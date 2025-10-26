@@ -27,6 +27,7 @@ from .services.accounts import (
     create_employee_account_invite,
     reset_employee_account,
 )
+from apps.common.media import public_media_url
 
 
 class ScopedModelViewSet(viewsets.ModelViewSet):
@@ -103,7 +104,9 @@ class EmployeeViewSet(ScopedModelViewSet):
             employee.photo.delete(save=False)
         object_key = f"{employee.epin}{ext}"
         employee.photo.save(object_key, file, save=True)
-        return Response({"photo_url": getattr(employee.photo, "url", None)}, status=200)
+        return Response(
+            {"photo_url": public_media_url(employee.photo.name)}, status=200
+        )
 
     @action(detail=True, methods=["get"], url_path="functions")
     def functions(self, request, pk=None):
