@@ -22,24 +22,46 @@ import { useAuth } from "../auth/AuthContext";
 
 const theme = createTheme({ palette: { mode: "light" } });
 
-const MENU: Array<{ label: string; to: string; roles?: string[] }> = [
+type MenuItem = {
+  label: string;
+  to: string;
+  roles?: string[];
+  funcCodes?: string[];
+};
+
+const MENU: MenuItem[] = [
   { label: "Home", to: "/home" },
   { label: "Superuser", to: "/admin", roles: ["superuser"] },
-  { label: "Students", to: "/students", roles: ["institute_admin"] },
-  { label: "Employees", to: "/employees", roles: ["institute_admin"] },
-  { label: "Courses", to: "/courses", roles: ["institute_admin"] },
-  { label: "Terms", to: "/terms", roles: ["institute_admin"] },
-  { label: "Finance", to: "/finance", roles: ["institute_admin", "superuser"] },
+
+  // Registrar + Director
+  { label: "Students", to: "/students", funcCodes: ["director", "registrar"] },
+  {
+    label: "Employees",
+    to: "/employees",
+    funcCodes: ["director", "registrar"],
+  },
+  { label: "Courses", to: "/courses", funcCodes: ["director", "registrar"] },
+  { label: "Terms", to: "/terms", funcCodes: ["director", "registrar"] },
+
+  // Finance: Director + Accountant
+  { label: "Finance", to: "/finance", funcCodes: ["director", "accountant"] },
 ];
 
 export default function AppChrome({ children }: PropsWithChildren) {
   const nav = useNavigate();
-  const { user, isAuthenticated, hasRole, login, logout } = useAuth();
+  const { user, isAuthenticated, hasRole, hasFunctionCode, login, logout } =
+    useAuth();
   const [drawer, setDrawer] = useState(false);
   const [u, setU] = useState("");
   const [p, setP] = useState("");
 
-  const items = MENU.filter((m) => !m.roles || m.roles.some((r) => hasRole(r)));
+  const items = MENU.filter((m) => {
+    if (!m.roles && !m.funcCodes) return true;
+
+    const byRole = m.roles?.some((r) => hasRole(r));
+    const byFunc = m.funcCodes?.some((c) => hasFunctionCode(c));
+    return Boolean(byRole || byFunc);
+  });
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

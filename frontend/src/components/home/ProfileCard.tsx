@@ -24,16 +24,17 @@ function initials(
 }
 
 type Props = {
+  epin?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   functionName?: string | null;
   photoUrl?: string | null;
   username?: string | null;
-  /** If provided, avatar becomes clickable and triggers this handler with the selected file. */
   uploadHandler?: (file: File) => Promise<void>;
 };
 
 export const ProfileCard = memo(function ProfileCard({
+  epin,
   firstName,
   lastName,
   functionName,
@@ -151,6 +152,11 @@ export const ProfileCard = memo(function ProfileCard({
           {functionName && (
             <Typography variant="body2" color="text.secondary" noWrap>
               {functionName}
+            </Typography>
+          )}
+          {epin && (
+            <Typography variant="body2" color="text.secondary" noWrap>
+              EPIN: {epin}
             </Typography>
           )}
         </Box>

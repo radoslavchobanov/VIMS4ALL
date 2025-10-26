@@ -43,6 +43,7 @@ const F = {
   outcomes_text: "outcomes_text",
   prior_knowledge_text: "prior_knowledge_text",
   required_skills_text: "required_skills_text",
+  weekly_lessons_text: "weekly_lessons_text",
 } as const;
 
 /* ================== Grid ================== */
@@ -233,6 +234,7 @@ function CoursesForm({
       [F.outcomes_text]: "",
       [F.prior_knowledge_text]: "",
       [F.required_skills_text]: "",
+      [F.weekly_lessons_text]: "",
     } as unknown as CourseWrite);
 
   const mapRead = (c: CourseRead): CourseWrite =>
@@ -249,6 +251,7 @@ function CoursesForm({
       [F.outcomes_text]: c.outcomes_text ?? "",
       [F.prior_knowledge_text]: c.prior_knowledge_text ?? "",
       [F.required_skills_text]: c.required_skills_text ?? "",
+      [F.weekly_lessons_text]: c.weekly_lessons_text ?? "",
     } as unknown as CourseWrite);
 
   const onSubmit = async (payload: CourseWrite) => {
@@ -438,6 +441,15 @@ function CoursesForm({
             value={get(form, F.required_skills_text)}
             onChange={(e) =>
               update({ [F.required_skills_text]: e.target.value } as any)
+            }
+          />
+          <TextField
+            label="Weekly lessons and their duration"
+            multiline
+            minRows={3}
+            value={get(form, F.weekly_lessons_text)}
+            onChange={(e) =>
+              update({ [F.weekly_lessons_text]: e.target.value } as any)
             }
           />
         </>

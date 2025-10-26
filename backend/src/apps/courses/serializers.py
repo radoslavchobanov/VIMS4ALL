@@ -25,6 +25,7 @@ class CourseSerializer(serializers.ModelSerializer):
             "outcomes_text",
             "prior_knowledge_text",
             "required_skills_text",
+            "weekly_lessons_text",
             "created_at",
         ]
         read_only_fields = ["created_at"]

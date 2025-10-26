@@ -45,6 +45,7 @@ type AuthContextType = {
   login: (u: string, p: string) => Promise<void>;
   logout: () => void;
   hasRole: (...roles: string[]) => boolean;
+  hasFunctionCode: (...codes: string[]) => boolean;
   refreshMe: (signal?: AbortSignal) => Promise<void>;
 };
 
@@ -121,7 +122,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     [user, authReady, login, logout, hasRole, refreshMe]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  function hasFunctionCode(...codes: string[]) {
+    if (!user) return false;
+    // superuser bypass
+    if (hasRole("superuser")) return true;
+
+    const code =
+      (user as any)?.employee?.function?.code ??
+      (user as any)?.employee?.function_code; // tolerate legacy shapes
+    if (!code) return false;
+
+    const cur = String(code).trim().toLowerCase();
+    return codes.some((c) => String(c).trim().toLowerCase() === cur);
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        authReady,
+        login,
+        logout,
+        hasRole,
+        hasFunctionCode,
+        refreshMe,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {

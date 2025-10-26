@@ -1,4 +1,3 @@
-// src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AppChrome from "./ui/AppChrome";
@@ -24,11 +23,15 @@ function AppRoutes() {
 
   const Protected: React.FC<{
     roles?: string[];
+    funcCodes?: string[];
     children: React.ReactNode;
-  }> = ({ roles, children }) => {
-    if (!authReady) return <AppLoading />; // ⬅️ wait for hydration
+  }> = ({ roles, funcCodes, children }) => {
+    const { isAuthenticated, hasRole, hasFunctionCode } = useAuth();
+    if (!authReady) return <AppLoading />;
     if (!isAuthenticated) return <Navigate to="/" replace />;
-    if (roles && !roles.some((r) => hasRole(r)))
+    if (roles && !hasRole(...roles))
+      return <Navigate to="/forbidden" replace />;
+    if (funcCodes && !hasFunctionCode(...funcCodes))
       return <Navigate to="/forbidden" replace />;
     return <>{children}</>;
   };
@@ -50,10 +53,12 @@ function AppRoutes() {
             </Protected>
           }
         />
+
+        {/* Registrar + Director */}
         <Route
           path="/students"
           element={
-            <Protected roles={["institute_admin"]}>
+            <Protected funcCodes={["director", "registrar"]}>
               <StudentsPage />
             </Protected>
           }
@@ -61,7 +66,7 @@ function AppRoutes() {
         <Route
           path="/employees"
           element={
-            <Protected roles={["institute_admin"]}>
+            <Protected funcCodes={["director", "registrar"]}>
               <EmployeesPage />
             </Protected>
           }
@@ -69,7 +74,7 @@ function AppRoutes() {
         <Route
           path="/courses"
           element={
-            <Protected roles={["institute_admin"]}>
+            <Protected funcCodes={["director", "registrar"]}>
               <CoursesPage />
             </Protected>
           }
@@ -77,15 +82,17 @@ function AppRoutes() {
         <Route
           path="/terms"
           element={
-            <Protected roles={["institute_admin"]}>
+            <Protected funcCodes={["director", "registrar"]}>
               <TermsPage />
             </Protected>
           }
         />
+
+        {/* Finance: Director + Accountant */}
         <Route
           path="/finance"
           element={
-            <Protected roles={["institute_admin", "superuser"]}>
+            <Protected funcCodes={["director", "accountant"]}>
               <FinancePage />
             </Protected>
           }

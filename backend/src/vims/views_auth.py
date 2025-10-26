@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, AnonymousUser
 from rest_framework.views import APIView
@@ -6,7 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.institutes.models import Institute
 from apps.employees.models import Employee, EmployeeCareer
-from apps.common.media import public_media_url  # already used in your serializers
+from apps.common.media import public_media_url
+from apps.students.models import AcademicTerm
 
 User = get_user_model()
 
@@ -55,21 +57,40 @@ class MeView(APIView):
                 )
                 .first()
             )
+
+            # ---- Active academic term for institute
+            active_term_payload = None
+            today = datetime.today()
+            active_term = (
+                AcademicTerm.all_objects.filter(
+                    institute_id=iid,
+                    is_closed=False,
+                    start_date__lte=today,
+                    end_date__gte=today,
+                )
+                .only("id", "name", "start_date", "end_date", "is_closed")
+                .first()
+            )
+            if active_term:
+                active_term_payload = {
+                    "id": str(active_term.id),
+                    "name": active_term.name,
+                    "start_date": active_term.start_date,
+                    "end_date": active_term.end_date,
+                }
+
             if inst:
                 inst_payload = {
                     "id": str(inst.id),
                     "name": inst.name,
-                    "short_name": inst.short_name,
-                    # keep both for FE compatibility
                     "abbr_name": inst.short_name,
                     "logo_url": _abs_from_key(request, inst.logo_key),
-                    "district": inst.district,
-                    "county": inst.county,
-                    "sub_county": inst.sub_county,
-                    "parish": inst.parish,
-                    "cell_village": inst.cell_village,
-                    "email": inst.email,
+                    "active_term": active_term_payload,
                 }
+
+            print("HERERERRER")
+            print(active_term)
+            print(today)
 
         # ---- Employee by system_user (OneToOne)
         emp_payload = None
@@ -98,10 +119,10 @@ class MeView(APIView):
 
             emp_payload = {
                 "id": str(emp.id),
+                "epin": emp.epin,
                 "first_name": emp.first_name,
                 "last_name": emp.last_name,
                 "function": func_payload,
-                # if you have a photo field on Employee, this will resolve; else stays None
                 "photo_url": _abs_from_key(request, emp.photo.name),
             }
 

@@ -34,6 +34,9 @@ class Course(InstituteScopedModel):
         null=True, blank=True
     )  # “Required prior knowledge”
     required_skills_text = models.TextField(null=True, blank=True)  # “Required skills”
+    weekly_lessons_text = models.TextField(
+        null=True, blank=True
+    )  # "Weekly lessons and their duration"
 
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
