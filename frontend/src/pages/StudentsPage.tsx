@@ -419,6 +419,7 @@ export function ImportStudentsDialog({
     "idle"
   );
   const [result, setResult] = useState<ImportResponse | null>(null);
+  const [dlBusy, setDlBusy] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -516,6 +517,40 @@ export function ImportStudentsDialog({
     }
   }
 
+  async function downloadTemplate() {
+    try {
+      setDlBusy(true);
+      const res = await api.get(STUDENT_IMPORT_TEMPLATE_ENDPOINT, {
+        responseType: "blob", // <-- important
+      });
+
+      // Try to use server-provided filename
+      const dispo = res.headers["content-disposition"] ?? "";
+      let filename = "students_import_template.xlsx";
+      const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(dispo);
+      if (m && m[1]) filename = m[1].replace(/['"]/g, "");
+
+      const blob = new Blob([res.data], {
+        type:
+          res.headers["content-type"] ??
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      onError(e?.message ?? "Template download failed");
+    } finally {
+      setDlBusy(false);
+    }
+  }
+
   const hasResult = !!result;
   const isValidating = phase === "validating";
   const isImporting = phase === "importing";
@@ -568,10 +603,11 @@ export function ImportStudentsDialog({
           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
             <Button
               variant="text"
-              onClick={() => window.open(templateUrl, "_blank")}
+              onClick={downloadTemplate}
               startIcon={<UploadFileIcon />}
+              disabled={dlBusy}
             >
-              Download template
+              {dlBusy ? "Downloading..." : "Download template"}
             </Button>
 
             <Tooltip title=".xlsx only">
