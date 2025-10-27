@@ -22,6 +22,13 @@ export const AUTH_REFRESH_ENDPOINT =
 export const AUTH_ME_ENDPOINT =
   import.meta.env.VITE_AUTH_ME_ENDPOINT ?? `${AUTH_BASE}me/`;
 
+
+/* ================== Institutes ================== */
+export const INSTITUTE_ENDPOINT =
+  import.meta.env.VITE_INSTITUTE_ENDPOINT ?? "/api/institutes/";
+export const INSTITUTE_LOGO_UPLOAD_ENDPOINT = (id: number | string) =>
+  `${INSTITUTE_ENDPOINT}${id}/logo/`;
+
 /* ================== Students ================== */
 export const STUDENTS_ENDPOINT =
   import.meta.env.VITE_STUDENTS_ENDPOINT ?? "/api/students/";

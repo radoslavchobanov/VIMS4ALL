@@ -30,20 +30,38 @@ type MenuItem = {
 };
 
 const MENU: MenuItem[] = [
-  { label: "Home", to: "/home" },
+  { label: "Home", to: "/home", roles: ["institute_admin"] },
   { label: "Superuser", to: "/admin", roles: ["superuser"] },
-
-  // Registrar + Director
-  { label: "Students", to: "/students", funcCodes: ["director", "registrar"] },
+  {
+    label: "Institute",
+    to: "/institute",
+    roles: ["institute_admin"],
+  },
+  {
+    label: "Students",
+    to: "/students",
+    roles: ["institute_admin"],
+    funcCodes: ["director", "registrar"],
+  },
   {
     label: "Employees",
     to: "/employees",
+    roles: ["institute_admin"],
     funcCodes: ["director", "registrar"],
   },
-  { label: "Courses", to: "/courses", funcCodes: ["director", "registrar"] },
-  { label: "Terms", to: "/terms", funcCodes: ["director", "registrar"] },
+  {
+    label: "Courses",
+    to: "/courses",
+    roles: ["institute_admin"],
+    funcCodes: ["director", "registrar"],
+  },
+  {
+    label: "Terms",
+    to: "/terms",
+    roles: ["institute_admin"],
+    funcCodes: ["director", "registrar"],
+  },
 
-  // Finance: Director + Accountant
   { label: "Finance", to: "/finance", funcCodes: ["director", "accountant"] },
 ];
 
@@ -56,7 +74,14 @@ export default function AppChrome({ children }: PropsWithChildren) {
   const [p, setP] = useState("");
 
   const items = MENU.filter((m) => {
-    if (!m.roles && !m.funcCodes) return true;
+    if (m.roles && !m.roles.some((r) => hasRole(r))) return false;
+
+    // 2) Function checks
+    if (m.funcCodes && !m.funcCodes.some((c) => hasFunctionCode(c)))
+      return false;
+
+    // 3) No gates => visible
+    return true;
 
     const byRole = m.roles?.some((r) => hasRole(r));
     const byFunc = m.funcCodes?.some((c) => hasFunctionCode(c));

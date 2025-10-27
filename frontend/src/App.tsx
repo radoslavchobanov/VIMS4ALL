@@ -8,6 +8,7 @@ import CoursesPage from "./pages/CoursesPage";
 import TermsPage from "./pages/TermsPage";
 import FinancePage from "./pages/FinancePage";
 import HomePage from "./pages/HomePage";
+import InstitutePage from "./pages/InstitutePage";
 import { CircularProgress, Box } from "@mui/material";
 
 function AppLoading() {
@@ -54,11 +55,23 @@ function AppRoutes() {
           }
         />
 
+        <Route
+          path="/institute"
+          element={
+            <Protected roles={["institute_admin"]}>
+              <InstitutePage />
+            </Protected>
+          }
+        />
+
         {/* Registrar + Director */}
         <Route
           path="/students"
           element={
-            <Protected funcCodes={["director", "registrar"]}>
+            <Protected
+              roles={["institute_admin"]}
+              funcCodes={["director", "registrar"]}
+            >
               <StudentsPage />
             </Protected>
           }
@@ -66,7 +79,10 @@ function AppRoutes() {
         <Route
           path="/employees"
           element={
-            <Protected funcCodes={["director", "registrar"]}>
+            <Protected
+              roles={["institute_admin"]}
+              funcCodes={["director", "registrar"]}
+            >
               <EmployeesPage />
             </Protected>
           }
@@ -74,7 +90,10 @@ function AppRoutes() {
         <Route
           path="/courses"
           element={
-            <Protected funcCodes={["director", "registrar"]}>
+            <Protected
+              roles={["institute_admin"]}
+              funcCodes={["director", "registrar"]}
+            >
               <CoursesPage />
             </Protected>
           }
@@ -82,7 +101,10 @@ function AppRoutes() {
         <Route
           path="/terms"
           element={
-            <Protected funcCodes={["director", "registrar"]}>
+            <Protected
+              roles={["institute_admin"]}
+              funcCodes={["director", "registrar"]}
+            >
               <TermsPage />
             </Protected>
           }

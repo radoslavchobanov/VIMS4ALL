@@ -22,15 +22,19 @@ from apps.finance.views import (
     FinanceAccountViewSet,
     LedgerEntryViewSet,
 )
-from apps.institutes.views import InstituteAdminViewSet
+from apps.institutes.views import InstituteAdminViewSet, InstituteViewSet
 from apps.accounts.views import AccountAdminViewSet
 
 router = DefaultRouter()
 
 
-# ADMIN ENDPPOINTS
+# ADMIN ENDPOINTS
 router.register(r"admin/institutes", InstituteAdminViewSet, basename="admin-institutes")
 router.register(r"admin/accounts", AccountAdminViewSet, basename="admin-accounts")
+
+# INSTITUTE ENDPOINTS
+router.register(r"institutes", InstituteViewSet, basename="institutes")
+
 
 # STUDENT ENDPOINTS
 router.register(r"students", StudentViewSet, basename="students")
