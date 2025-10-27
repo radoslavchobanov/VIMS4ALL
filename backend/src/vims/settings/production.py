@@ -35,3 +35,5 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+MEDIA_PUBLIC_BASE = env("MEDIA_PUBLIC_BASE", default=None)
