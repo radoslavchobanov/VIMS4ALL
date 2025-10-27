@@ -1,4 +1,3 @@
-# backend/src/vims/settings/production.py
 from .base import *  # noqa
 
 DEBUG = False
@@ -10,6 +9,7 @@ CSRF_TRUSTED_ORIGINS = env.list(
     "CSRF_TRUSTED_ORIGINS", default=["https://vims4all.eu", "https://www.vims4all.eu"]
 )
 
+# Secure proxy and SSL settings
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = env.bool("USE_X_FORWARDED_HOST", default=True)
 
@@ -23,17 +23,17 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = "DENY"
 
-# Static files via WhiteNoise (keeps deployment simple: no extra nginx for /static)
-MIDDLEWARE.insert(
-    1, "whitenoise.middleware.WhiteNoiseMiddleware"
-)  # after SecurityMiddleware
+# WhiteNoise for admin static files
+MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 STORAGES = {
-    "default": {  # media -> S3/MinIO (from base env)
-        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-    },
-    "staticfiles": {  # admin static -> collected into STATIC_ROOT and served by WhiteNoise
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
     },
 }
 
-MEDIA_PUBLIC_BASE = env("MEDIA_PUBLIC_BASE", default=None)
+AWS_S3_ADDRESSING_STYLE = "path"
+AWS_QUERYSTRING_AUTH = False
+MEDIA_PUBLIC_BASE = env(
+    "MEDIA_PUBLIC_BASE", default="https://vims4all.eu/s3/vims-media"
+)

@@ -1,9 +1,8 @@
 from pathlib import Path
-import environ
 import os
+import environ
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-
 env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     DJANGO_SECRET_KEY=(str, ""),
@@ -11,32 +10,34 @@ env = environ.Env(
     DJANGO_TIME_ZONE=(str, "UTC"),
 )
 
-# Load .env if present
+# Load .env file dynamically
 env_file = os.getenv("DJANGO_ENV_FILE", ".env.dev")
-env_path = os.path.join(BASE_DIR, env_file)
-if os.path.exists(env_path):
+env_path = BASE_DIR / env_file
+if env_path.exists():
     environ.Env.read_env(env_path)
 
+# --- Core ---
 DEBUG = env("DJANGO_DEBUG")
-SECRET_KEY = env("DJANGO_SECRET_KEY") or "dev-insecure"
+SECRET_KEY = env("DJANGO_SECRET_KEY") or "unsafe-dev-secret"
 ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS").split(",")]
 TIME_ZONE = env("DJANGO_TIME_ZONE")
 USE_TZ = True
 
+# --- Apps ---
 INSTALLED_APPS = [
-    # Django core (admin needs these)
+    # Django core
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django_filters",
     # Third-party
+    "django_filters",
     "corsheaders",
     "rest_framework",
     "drf_spectacular",
-    # Your apps
+    # Project apps
     "apps.accounts",
     "apps.institutes",
     "apps.common",
@@ -55,30 +56,19 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # your tenancy middleware can go here later
     "apps.common.middleware.InstituteContextMiddleware",
 ]
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-CORS_ALLOW_CREDENTIALS = False  # set to True if you use cookies for auth
-CORS_ALLOW_HEADERS = ["*"]
-CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
 ROOT_URLCONF = "vims.urls"
 WSGI_APPLICATION = "vims.wsgi.application"
 ASGI_APPLICATION = "vims.asgi.application"
 
-# --- TEMPLATES: required for admin ---
+# --- Templates ---
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [
-            BASE_DIR / "templates"
-        ],  # create src/templates if you need custom templates
-        "APP_DIRS": True,  # loads templates from app_name/templates/
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
@@ -90,6 +80,7 @@ TEMPLATES = [
     }
 ]
 
+# --- Database ---
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -103,16 +94,14 @@ DATABASES = {
 
 AUTH_USER_MODEL = "accounts.User"
 
-# Static/Media
+# --- Static & Media ---
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-
-# --- Primary key type (silences W042 and is the modern default) ---
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# --- DRF / schema (optional but useful) ---
+# --- DRF ---
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -126,7 +115,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-
 SPECTACULAR_SETTINGS = {
     "TITLE": "VIMS API",
     "VERSION": "0.1.0",
@@ -138,44 +126,37 @@ SPECTACULAR_SETTINGS = {
             "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
         }
     },
-    "COMPONENT_SPLIT_REQUEST": True,
 }
 
-# S3/MinIO storages
-if env.bool("S3_USE_SSL", default=False):
-    use_ssl = True
-else:
-    use_ssl = False
-
-
+# --- S3 / MinIO ---
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 AWS_S3_ENDPOINT_URL = env(
     "AWS_S3_ENDPOINT_URL",
     default=f"http{'s' if env.bool('S3_USE_SSL', False) else ''}://minio:9000",
 )
-AWS_S3_REGION_NAME = env("S3_REGION")
-AWS_S3_USE_SSL = use_ssl
 AWS_ACCESS_KEY_ID = env("MINIO_ROOT_USER")
 AWS_SECRET_ACCESS_KEY = env("MINIO_ROOT_PASSWORD")
 AWS_STORAGE_BUCKET_NAME = env("MINIO_MEDIA_BUCKET")
+AWS_S3_REGION_NAME = env("S3_REGION", default="us-east-1")
+AWS_S3_USE_SSL = env.bool("S3_USE_SSL", default=False)
+AWS_S3_ADDRESSING_STYLE = "path"
+AWS_QUERYSTRING_AUTH = False
 AWS_DEFAULT_ACL = None
+AWS_S3_FILE_OVERWRITE = False
 
-# Internationalization
-LANGUAGE_CODE = "en-us"
+MEDIA_PUBLIC_BASE = env("MEDIA_PUBLIC_BASE", default=None)
 
-# --- Email backend (Plesk SMTP) ---
+# --- Email (SMTP / Plesk) ---
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("EMAIL_HOST", "mail.vims4all.eu")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"  # STARTTLS on 587
-EMAIL_USE_SSL = False  # don't set both TLS and SSL
-EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "15"))
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "VIMS <service@vims4all.eu>")
-SERVER_EMAIL = os.getenv("SERVER_EMAIL", "service@vims4all.eu")  # error emails
-# Optional niceties
+EMAIL_HOST = env("EMAIL_HOST", default="mail.vims4all.eu")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default=None)
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default=None)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="VIMS <service@vims4all.eu>")
+SERVER_EMAIL = env("SERVER_EMAIL", default="service@vims4all.eu")
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=15)
 EMAIL_SUBJECT_PREFIX = "[VIMS] "
 
-# --- Permissions ---
+LANGUAGE_CODE = "en-us"
 ACCOUNT_MGMT_ALLOWED_FUNCTION_CODES = {"director", "registrar"}
