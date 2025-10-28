@@ -4,6 +4,11 @@ from apps.common.media import public_media_url
 from .models import Institute
 
 
+def mgr(model):
+    """Return all_objects if present (soft-delete setups), else objects."""
+    return getattr(model, "all_objects", model.objects)
+
+
 class InstituteReadSerializer(serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
 

@@ -1,78 +1,74 @@
 from django.db import models
 from django.utils import timezone
+from django.core.validators import MinValueValidator
 from apps.common.models import InstituteScopedModel, TimeStampedModel
 from apps.employees.models import Employee
 
 
-class Course(InstituteScopedModel):
-    class CertificateType(models.TextChoices):
-        CERTIFICATE = "certificate", "Certificate"
-        DIPLOMA = "diploma", "Diploma"
-        OTHER = "other", "Other"
+class CertificateType(models.TextChoices):
+    CERTIFICATE = "certificate", "Certificate"
+    DIPLOMA = "diploma", "Diploma"
+    OTHER = "other", "Other"
 
-    # Main form fields
-    name = models.CharField(max_length=200)
-    abbr_name = models.CharField(max_length=60, unique=False)
-    classes_total = models.PositiveSmallIntegerField(default=1)  # “of 3”
-    course_fee = models.DecimalField(max_digits=12, decimal_places=2)  # “Course fee”
-    certificate_type = models.CharField(
-        max_length=20,
-        choices=CertificateType.choices,
-        default=CertificateType.CERTIFICATE,
+
+class Course(models.Model):
+    institute = models.ForeignKey(
+        "institutes.Institute", on_delete=models.CASCADE, related_name="courses"
     )
-    credits = models.PositiveSmallIntegerField(
+    name = models.CharField(max_length=200)
+    abbreviation = models.CharField(
+        max_length=32, blank=True, default=""
+    )  # ← add default
+    total_classes = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1)], default=1
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # class Meta:
+    #     unique_together = (("institute", "name"),)
+    #     indexes = [models.Index(fields=["institute", "name"])]
+
+    def __str__(self):
+        return f"{self.name} ({self.institute_id})"
+
+
+class CourseClass(models.Model):
+    """
+    A timeless level inside a course (e.g. Sewing-1 / Sewing-2 / Sewing-3).
+    Name is derived from parent Course.name and index; we persist it as denormalized for UX and fast lookups.
+    """
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="classes")
+    index = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1)], default=1
+    )  # 1..Course.total_classes
+    name = models.CharField(
+        max_length=255, default=""
+    )  # "Sewing-1" (kept in sync by services)
+    # Editable fields in “Course Classes” tab:
+    fee_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )  # currency via institute policy
+    certificate_type = models.CharField(
+        max_length=64, blank=True
+    )  # or FK to LUT_CertificateType later
+    credits = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    hours_per_term = models.PositiveIntegerField(null=True, blank=True)
+    start_date = models.DateField(
         null=True, blank=True
-    )  # “Course credits”
-    hours_per_term = models.PositiveSmallIntegerField(null=True, blank=True)
+    )  # optional; not “Term”-bound in this version
+    end_date = models.DateField(null=True, blank=True)
 
-    valid_from = models.DateField(null=True, blank=True)
-    valid_until = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    # Big text areas on form
-    outcomes_text = models.TextField(null=True, blank=True)  # “What you will know…”
-    prior_knowledge_text = models.TextField(
-        null=True, blank=True
-    )  # “Required prior knowledge”
-    required_skills_text = models.TextField(null=True, blank=True)  # “Required skills”
-    weekly_lessons_text = models.TextField(
-        null=True, blank=True
-    )  # "Weekly lessons and their duration"
-
-    created_at = models.DateTimeField(default=timezone.now, editable=False)
-
-    class Meta:
-        unique_together = (("institute", "name"), ("institute", "abbr_name"))
-        ordering = ["name"]
+    # class Meta:
+    #     unique_together = (("course", "index"),)
+    #     indexes = [models.Index(fields=["course", "index"])]
 
     def __str__(self):
         return self.name
-
-
-class CourseClass(InstituteScopedModel, TimeStampedModel):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="classes")
-    term = models.ForeignKey(
-        "students.AcademicTerm", on_delete=models.PROTECT, related_name="classes"
-    )
-    name = models.CharField(max_length=100, null=True, blank=True)
-    class_number = models.PositiveSmallIntegerField()
-
-    class Meta:
-        unique_together = (("institute", "course", "class_number", "term"),)
-        ordering = ["course__name", "term__start_date", "class_number"]
-        indexes = [
-            models.Index(fields=["term"], name="courseclass_term_idx"),
-            models.Index(
-                fields=["institute", "term"], name="courseclass_inst_term_idx"
-            ),
-        ]
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-
-        if self.class_number < 1 or (
-            self.course and self.class_number > self.course.classes_total
-        ):
-            raise ValidationError("class_number must be within 1..classes_total.")
 
 
 class CourseInstructor(InstituteScopedModel, TimeStampedModel):
@@ -89,12 +85,14 @@ class CourseInstructor(InstituteScopedModel, TimeStampedModel):
     )
 
     class Meta:
-        unique_together = ("institute", "course_class", "instructor")
-        indexes = [
-            models.Index(fields=["course_class"], name="ci_class_idx"),
-            models.Index(
-                fields=["institute", "course_class"], name="ci_inst_class_idx"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["course_class", "instructor"],
+                name="uq_course_class_instructor",
             ),
+        ]
+        indexes = [
+            models.Index(fields=["institute", "course_class"]),
         ]
 
 

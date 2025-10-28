@@ -1,51 +1,94 @@
+from __future__ import annotations
+from django.db import transaction
 from rest_framework import serializers
 from apps.employees.models import Employee
 from apps.employees.selectors import q_active_instructors
 from .models import Course, CourseClass, CourseInstructor
-from django.apps import apps as django_apps
-
-AcademicTerm = django_apps.get_model("students", "AcademicTerm")
+from . import services
 
 
-# ---- Course ----
-class CourseSerializer(serializers.ModelSerializer):
+# ---------- helper ----------
+def mgr(model):
+    return getattr(model, "all_objects", model.objects)
+
+
+# ============================
+# Course
+# ============================
+
+
+class CourseReadSerializer(serializers.ModelSerializer):
+    # Legacy names (read)
+    abbr_name = serializers.CharField(source="abbreviation")
+    classes_total = serializers.IntegerField(source="total_classes")
+
     class Meta:
         model = Course
         fields = [
             "id",
             "name",
+            "abbr_name",  # legacy alias
+            "classes_total",  # legacy alias
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class CourseWriteSerializer(serializers.ModelSerializer):
+    # Accept BOTH new and legacy names (write)
+    abbreviation = serializers.CharField(required=False, allow_blank=True)
+    total_classes = serializers.IntegerField(required=False)
+    abbr_name = serializers.CharField(
+        source="abbreviation", required=False, allow_blank=True, write_only=True
+    )
+    classes_total = serializers.IntegerField(
+        source="total_classes", required=False, write_only=True
+    )
+
+    class Meta:
+        model = Course
+        fields = [
+            "id",
+            "name",
+            # new names
+            "abbreviation",
+            "total_classes",
+            # legacy write aliases
             "abbr_name",
             "classes_total",
-            "course_fee",
-            "certificate_type",
-            "credits",
-            "hours_per_term",
-            "valid_from",
-            "valid_until",
-            "outcomes_text",
-            "prior_knowledge_text",
-            "required_skills_text",
-            "weekly_lessons_text",
-            "created_at",
         ]
-        read_only_fields = ["created_at"]
+        read_only_fields = ["id"]
 
+    @transaction.atomic
     def create(self, validated):
-        validated["institute_id"] = self.context["request"].user.institute_id
-        return super().create(validated)
+        req = self.context["request"]
+        iid = getattr(req.user, "institute_id", None)
+        if not iid:
+            raise serializers.ValidationError("User has no institute assigned.")
+        validated["institute_id"] = iid
+
+        course = super().create(validated)
+        services.ensure_course_classes(course)
+        return course
+
+    @transaction.atomic
+    def update(self, instance, validated):
+        before_name = instance.name
+        before_total = instance.total_classes
+        course = super().update(instance, validated)
+        if course.name != before_name or course.total_classes != before_total:
+            services.ensure_course_classes(course)
+        return course
 
 
-# =========================================================
+# ============================
 # CourseClass
-# =========================================================
+# ============================
 
 
-# READ serializer (for list/retrieve)
 class CourseClassReadSerializer(serializers.ModelSerializer):
-    # denormalized convenience fields
     course_name = serializers.CharField(source="course.name", read_only=True)
-    term_name = serializers.CharField(source="term.name", read_only=True)
-    term_start_date = serializers.DateField(source="term.start_date", read_only=True)
 
     class Meta:
         model = CourseClass
@@ -53,71 +96,62 @@ class CourseClassReadSerializer(serializers.ModelSerializer):
             "id",
             "course",
             "course_name",
-            "term",
-            "term_name",
-            "term_start_date",
+            "index",
             "name",
-            "class_number",
+            "fee_amount",
+            "certificate_type",
+            "credits",
+            "hours_per_term",
+            "start_date",
+            "end_date",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "id",
+            "course",
+            "course_name",
+            "index",
+            "name",
             "created_at",
             "updated_at",
-            "course_name",
-            "term_name",
-            "term_start_date",
         ]
 
 
-# WRITE serializer (for create/update/patch)
 class CourseClassWriteSerializer(serializers.ModelSerializer):
-    course = serializers.PrimaryKeyRelatedField(queryset=Course.all_objects.none())
-    term = serializers.PrimaryKeyRelatedField(queryset=AcademicTerm.all_objects.none())
+    """Update mutable attributes only; creation/destruction is managed by Course."""
 
     class Meta:
         model = CourseClass
-        fields = ["course", "term", "name", "class_number"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        iid = getattr(self.context["request"].user, "institute_id", None)
-        if iid:
-            self.fields["course"].queryset = Course.all_objects.filter(institute_id=iid)
-            self.fields["term"].queryset = AcademicTerm.all_objects.filter(
-                institute_id=iid
-            )
+        fields = [
+            "fee_amount",
+            "certificate_type",
+            "credits",
+            "hours_per_term",
+            "start_date",
+            "end_date",
+        ]
 
     def validate(self, attrs):
-        inst = self.instance
-        course = attrs.get("course") or getattr(inst, "course", None)
-        class_number = attrs.get("class_number") or getattr(inst, "class_number", None)
-        if course and class_number:
-            total = course.classes_total
-            if not (1 <= class_number <= total):
-                raise serializers.ValidationError(
-                    {"class_number": f"Must be within 1..{total}."}
-                )
+        start = attrs.get("start_date", getattr(self.instance, "start_date", None))
+        end = attrs.get("end_date", getattr(self.instance, "end_date", None))
+        if start and end and end < start:
+            raise serializers.ValidationError(
+                {"end_date": "Must be on/after start_date."}
+            )
         return attrs
 
-    def create(self, validated):
-        validated["institute_id"] = self.context["request"].user.institute_id
-        return super().create(validated)
 
-
-# =========================================================
-# CourseInstructor (unchanged behavior, add a READ serializer for UX)
-# =========================================================
+# ============================
+# CourseInstructor
+# ============================
 
 
 class CourseInstructorReadSerializer(serializers.ModelSerializer):
     course_name = serializers.CharField(
         source="course_class.course.name", read_only=True
     )
-    class_number = serializers.IntegerField(
-        source="course_class.class_number", read_only=True
-    )
+    class_number = serializers.IntegerField(source="course_class.index", read_only=True)
     instructor_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -131,61 +165,60 @@ class CourseInstructorReadSerializer(serializers.ModelSerializer):
             "instructor_name",
             "created_at",
         ]
-        read_only_fields = [
-            "created_at",
-            "course_name",
-            "class_number",
-            "instructor_name",
-        ]
+        read_only_fields = fields
 
-    def get_instructor_name(self, obj):
+    def get_instructor_name(self, obj: CourseInstructor) -> str:
+        inst = obj.instructor
         return (
-            getattr(obj.instructor, "full_name", None)
-            or f"{obj.instructor.first_name} {obj.instructor.last_name}".strip()
+            getattr(inst, "full_name", None)
+            or f"{inst.first_name} {inst.last_name}".strip()
         )
 
 
-class CourseInstructorSerializer(serializers.ModelSerializer):
-    course_class = serializers.PrimaryKeyRelatedField(
-        queryset=CourseClass.all_objects.none()
-    )
-    instructor = serializers.PrimaryKeyRelatedField(
-        queryset=Employee.all_objects.none()
-    )
+class CourseInstructorWriteSerializer(serializers.ModelSerializer):
+    course_class = serializers.PrimaryKeyRelatedField(queryset=mgr(CourseClass).none())
+    instructor = serializers.PrimaryKeyRelatedField(queryset=mgr(Employee).none())
 
     class Meta:
         model = CourseInstructor
         fields = ["id", "course_class", "instructor"]
+        read_only_fields = ["id"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         req = self.context["request"]
         iid = getattr(req.user, "institute_id", None)
         if iid:
-            # scope both FKs explicitly by institute
-            self.fields["course_class"].queryset = CourseClass.all_objects.filter(
-                institute_id=iid
+            # CourseClass is tenant-scoped via Course
+            self.fields["course_class"].queryset = mgr(CourseClass).filter(
+                course__institute_id=iid
             )
             self.fields["instructor"].queryset = q_active_instructors(iid)
 
     def validate(self, attrs):
         iid = getattr(self.context["request"].user, "institute_id", None)
-        inst: Employee = attrs["instructor"]
-
-        # still belt & suspenders: ensure the chosen PK is eligible
-        if not q_active_instructors(iid).filter(pk=inst.pk).exists():
-            raise serializers.ValidationError(
-                {"instructor": "Selected employee is not an active Instructor."}
-            )
-
-        # (optional) cross-institute guard: course_class and instructor must be same institute
         cc: CourseClass = attrs["course_class"]
-        if getattr(cc, "institute_id", None) != getattr(inst, "institute_id", None):
+        emp: Employee = attrs["instructor"]
+
+        # cross-tenant guard (CourseClass has no institute FK; use course__institute)
+        if getattr(cc.course, "institute_id", None) != getattr(
+            emp, "institute_id", None
+        ):
             raise serializers.ValidationError(
                 {"instructor": "Instructor belongs to a different institute."}
+            )
+
+        # role eligibility
+        if not q_active_instructors(iid).filter(pk=emp.pk).exists():
+            raise serializers.ValidationError(
+                {"instructor": "Selected employee is not an active Instructor."}
             )
         return attrs
 
     def create(self, validated):
-        validated["institute_id"] = self.context["request"].user.institute_id
+        iid = getattr(self.context["request"].user, "institute_id", None)
+        if not iid:
+            raise serializers.ValidationError("User has no institute assigned.")
+        # Always set the tenant on create
+        validated["institute_id"] = iid  # ok to pass *_id, avoids extra query
         return super().create(validated)

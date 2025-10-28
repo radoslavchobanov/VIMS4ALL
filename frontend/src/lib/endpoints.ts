@@ -69,9 +69,9 @@ export const COURSES_ENDPOINT =
 export const COURSE_CLASSES_ENDPOINT = (courseId: number | string) =>
   `${COURSES_ENDPOINT}${courseId}/classes/`;
 export const COURSE_INSTRUCTORS_ENDPOINT =
-  `/api/course-instructors/`;
-export const COURSE_INSTRUCTORS_BY_CLASS_ENDPOINT = (classId: number | string) =>
-    `/api/course-instructors/by-class/${classId}/`;
+  import.meta.env.VITE_COURSE_INSTRUCTORS_ENDPOINT ?? "/api/course-instructors/";
+export const COURSE_INSTRUCTORS_BY_CLASS_ENDPOINT = (id: number | string) =>
+  `${COURSE_INSTRUCTORS_ENDPOINT}?course_class=${id}`;
 export const COURSE_ELIGIBLE_INSTRUCTORS_ENDPOINT =
 `/api/course-instructors/eligible-instructors/`;
 

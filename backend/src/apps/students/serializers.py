@@ -10,6 +10,12 @@ from .services.dedup import has_potential_duplicate
 from apps.common.media import public_media_url
 from apps.common.generate_pin import generate_pin
 
+
+def mgr(model):
+    """Return all_objects if present (soft-delete setups), else .objects."""
+    return getattr(model, "all_objects", model.objects)
+
+
 STATUS_TRANSITIONS = {
     "enquire": {"accepted", "not_accepted"},
     "accepted": {"no_show", "active"},
@@ -178,10 +184,9 @@ class StudentCustodianSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # scope 'student' to the caller's institute
         req = self.context.get("request")
         if req and getattr(req.user, "institute_id", None):
-            self.fields["student"].queryset = Student.all_objects.filter(
+            self.fields["student"].queryset = mgr(Student).filter(
                 institute_id=req.user.institute_id
             )
 
@@ -207,12 +212,12 @@ class StudentCustodianSerializer(serializers.ModelSerializer):
 
 
 class StudentStatusWriteSerializer(serializers.ModelSerializer):
-    student = serializers.PrimaryKeyRelatedField(queryset=Student.all_objects.none())
+    student = serializers.PrimaryKeyRelatedField(queryset=mgr(Student).none())
     term = serializers.PrimaryKeyRelatedField(
-        queryset=AcademicTerm.all_objects.none(), allow_null=True, required=False
+        queryset=mgr(AcademicTerm).none(), allow_null=True, required=False
     )
     course_class = serializers.PrimaryKeyRelatedField(
-        queryset=CourseClass.all_objects.none(), allow_null=True, required=False
+        queryset=mgr(CourseClass).none(), allow_null=True, required=False
     )
 
     class Meta:
@@ -234,13 +239,9 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
         req = self.context.get("request")
         if req and getattr(req.user, "institute_id", None):
             iid = req.user.institute_id
-            self.fields["student"].queryset = Student.all_objects.filter(
-                institute_id=iid
-            )
-            self.fields["term"].queryset = AcademicTerm.all_objects.filter(
-                institute_id=iid
-            )
-            self.fields["course_class"].queryset = CourseClass.all_objects.filter(
+            self.fields["student"].queryset = mgr(Student).filter(institute_id=iid)
+            self.fields["term"].queryset = mgr(AcademicTerm).filter(institute_id=iid)
+            self.fields["course_class"].queryset = mgr(CourseClass).filter(
                 institute_id=iid
             )
 
@@ -251,9 +252,9 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
         new_status = attrs.get("status")
         term = attrs.get("term")
 
-        # determine current by is_active first, then latest
         last = (
-            StudentStatus.all_objects.filter(institute_id=iid, student=student)
+            mgr(StudentStatus)
+            .filter(institute_id=iid, student=student)
             .order_by("-is_active", "-effective_at", "-id")
             .first()
         )
@@ -267,14 +268,12 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
                 }
             )
 
-        # Require term for instructional statuses; forbid for others (optional but clean)
-        if new_status in {"active", "retake"}:
-            if term is None:
-                raise serializers.ValidationError(
-                    {"term": "Term is required for ACTIVE/RETAKE."}
-                )
-        else:
-            # optionally normalize: if term was sent, drop it
+        # Require term for instructional statuses
+        if new_status in {"active", "retake"} and term is None:
+            raise serializers.ValidationError(
+                {"term": "Term is required for ACTIVE/RETAKE."}
+            )
+        if new_status not in {"active", "retake"}:
             attrs["term"] = None
 
         return attrs
@@ -282,11 +281,10 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
 
 class CourseClassMinSerializer(serializers.ModelSerializer):
     course_name = serializers.CharField(source="course.name", read_only=True)
-    term_name = serializers.CharField(source="term.name", read_only=True)
 
     class Meta:
         model = CourseClass
-        fields = ("id", "name", "course_name", "term_name")
+        fields = ("id", "name", "course_name")
 
 
 class StudentStatusReadSerializer(serializers.ModelSerializer):
