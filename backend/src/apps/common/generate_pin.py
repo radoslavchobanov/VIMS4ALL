@@ -1,41 +1,57 @@
-import secrets, hmac, hashlib
-from typing import Union
-import uuid
+from datetime import date
+from django.utils import timezone
+from dataclasses import dataclass
+from django.db import transaction
+from django.db.models import F
+
+from apps.common.models import PinCounter, PinKind
+from apps.terms.services import pick_term_by_closeness
 
 
-def generate_pin(
-    prefix: str,
-    institute_id: Union[int, str],
-    first_name: str,
-    *,
-    hash_len: int = 10,
-    rand_len: int = 4,
-) -> str:
-    """
-    Minimal PIN generator with randomness (no secrets/HMAC).
-    - prefix: e.g. "S", "E"
-    - institute_id: int or str
-    - first_name: person's first name
+@dataclass(frozen=True)
+class PinResult:
+    pin: str
+    year2: int
+    term_no: int | None
+    seq: int
 
-    Output shape (default): <PREFIX><hash_len hex><rand_len alnum>
-      e.g. "S9f2a1c0b7dK3P8"
 
-    Notes:
-    - hash = SHA1(str(institute_id).lower() + "|" + first_name.lower()), sliced to `hash_len`
-    - random = first `rand_len` chars of uuid4 (hex), uppercased for variety (alphanumeric)
-    """
-    if not prefix or not first_name:
-        raise ValueError("prefix and first_name are required")
+def _year2(dt: date) -> int:
+    return dt.year % 100
 
-    pref = prefix.strip().upper()
-    name = first_name.strip().lower()
-    inst = str(institute_id).strip().lower()
 
-    # deterministic part from institute+name
-    seed = f"{inst}|{name}".encode("utf-8")
-    hash_part = hashlib.sha1(seed).hexdigest()[:hash_len]
+def _bump_and_get(
+    institute_id: int, *, kind: str, year2: int, term_no: int | None
+) -> int:
+    with transaction.atomic():
+        counter, _ = PinCounter.objects.select_for_update().get_or_create(
+            institute_id=institute_id,
+            kind=kind,
+            year2=year2,
+            term_no=term_no,
+            defaults={"last_no": 0},
+        )
+        counter.last_no = F("last_no") + 1
+        counter.save(update_fields=["last_no"])
+        counter.refresh_from_db(fields=["last_no"])
+        return int(counter.last_no)
 
-    # random part (no secrets): use uuid4 hex and uppercase it for mixed alnum look
-    rand_part = uuid.uuid4().hex[:rand_len].upper()
 
-    return f"{pref}{hash_part}{rand_part}"
+def generate_employee_pin(
+    *, institute_id: int, entry_date: date | None = None
+) -> PinResult:
+    d = entry_date or timezone.localdate()
+    yy = _year2(d)
+    seq = _bump_and_get(institute_id, kind=PinKind.EMPLOYEE, year2=yy, term_no=None)
+    return PinResult(pin=f"E{yy:02d}{seq:03d}", year2=yy, term_no=None, seq=seq)
+
+
+def generate_student_pin(
+    *, institute_id: int, enquiry_date: date | None = None
+) -> PinResult:
+    d = enquiry_date or timezone.localdate()
+    yy = _year2(d)
+    sel = pick_term_by_closeness(institute_id, d)
+    T = int(sel.term_no)  # parsed from "TYYYY_N"
+    seq = _bump_and_get(institute_id, kind=PinKind.STUDENT, year2=yy, term_no=T)
+    return PinResult(pin=f"S{yy:02d}{T}{seq:03d}", year2=yy, term_no=T, seq=seq)

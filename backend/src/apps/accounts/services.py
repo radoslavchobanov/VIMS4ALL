@@ -4,7 +4,7 @@ from django.contrib.auth.models import Group
 
 from apps.employees.models import Employee, EmployeeCareer, EmployeeFunction
 from apps.accounts.models import User
-from apps.common.generate_pin import generate_pin
+from apps.common.generate_pin import generate_employee_pin
 
 
 @transaction.atomic
@@ -47,7 +47,7 @@ def provision_institute_admin_employee(user: User) -> Employee:
 
     # 3) Create if still missing
     if not emp:
-        epin = generate_pin("E", user.institute_id, first)
+        epin = generate_employee_pin(institute_id=user.institute_id)
         emp = Employee.all_objects.create(
             institute_id=user.institute_id,
             epin=epin,

@@ -10,7 +10,7 @@ from .services.photos import ensure_student_photo_or_default
 from .services.dedup import has_potential_duplicate
 
 from apps.common.media import public_media_url
-from apps.common.generate_pin import generate_pin
+from apps.common.generate_pin import generate_student_pin
 
 
 def mgr(model):
@@ -109,7 +109,7 @@ class StudentWriteSerializer(serializers.ModelSerializer):
             )
 
         validated_data["institute_id"] = iid
-        validated_data["spin"] = generate_pin("S", iid, validated_data["first_name"])
+        validated_data["spin"] = generate_student_pin(institute_id=iid).pin
 
         student = super().create(validated_data)
 

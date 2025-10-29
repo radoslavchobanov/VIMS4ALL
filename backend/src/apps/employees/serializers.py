@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
-from apps.common.generate_pin import generate_pin
+from apps.common.generate_pin import generate_employee_pin
 from .services.dedup import has_potential_duplicate_employee
 from apps.common.media import public_media_url
 
@@ -114,7 +114,7 @@ class EmployeeWriteSerializer(serializers.ModelSerializer):
                 "An active employee with the same name and birth date already exists."
             )
         validated["institute_id"] = iid
-        validated["epin"] = generate_pin("E", iid, validated["first_name"])
+        validated["epin"] = generate_employee_pin(institute_id=iid).pin
         return super().create(validated)
 
 

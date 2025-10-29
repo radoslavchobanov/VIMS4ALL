@@ -1,5 +1,7 @@
 from __future__ import annotations
 import re
+from dataclasses import dataclass
+from django.utils import timezone
 from datetime import date
 from django.db import connection, transaction
 from django.db.models import Q
@@ -79,3 +81,74 @@ def get_nearest_term(
     if upcoming:
         return upcoming
     return qs.order_by("-end_date").first()
+
+
+@dataclass(frozen=True)
+class TermSelection:
+    chosen: AcademicTerm
+    current: AcademicTerm | None
+    next_: AcademicTerm | None
+    term_no: int  # <-- expose the parsed number
+
+
+def pick_term_by_closeness(
+    institute_id: int, enquiry_date: date | None = None
+) -> TermSelection:
+    d = enquiry_date or timezone.localdate()
+
+    qs = AcademicTerm.objects.filter(institute_id=institute_id).order_by("start_date")
+    current = qs.filter(start_date__lte=d).last()
+    next_ = qs.filter(start_date__gt=d).first()
+
+    if current and next_:
+        diff_curr = abs((d - current.start_date).days)
+        diff_next = abs((next_.start_date - d).days)
+        chosen = next_ if diff_next <= diff_curr else current
+    elif next_:
+        chosen = next_
+    elif current:
+        chosen = current
+    else:
+        raise ValueError("No academic terms defined for this institute.")
+
+    parsed = parse_term_name(chosen.name)  # e.g. "T2025_2" -> num=2
+    return TermSelection(
+        chosen=chosen, current=current, next_=next_, term_no=parsed.num
+    )
+
+
+TERM_PATTERNS = [
+    re.compile(r"^T(?P<year>\d{4})_(?P<num>\d+)$", re.IGNORECASE),
+    re.compile(r"^T(?P<year>\d{2})_(?P<num>\d+)$", re.IGNORECASE),
+]
+
+
+@dataclass(frozen=True)
+class ParsedTermName:
+    year: int
+    num: int
+
+
+def parse_term_name(name: str) -> ParsedTermName:
+    if not name:
+        raise ValueError("Term name is empty.")
+    for pat in TERM_PATTERNS:
+        m = pat.match(name.strip())
+        if m:
+            year = int(m.group("year"))
+            # normalize 2-digit years to 2000..2099 (tweak if you support other centuries)
+            if year < 100:
+                year += 2000
+            num = int(m.group("num"))
+            if num < 1:
+                raise ValueError(f"Invalid term number in '{name}'.")
+            return ParsedTermName(year=year, num=num)
+    raise ValueError(f"Term name '{name}' does not match TYYYY_N.")
+
+
+def fallback_term_num_by_order(term, qs_for_year):
+    ordered = list(qs_for_year.order_by("start_date").values_list("id", flat=True))
+    try:
+        return ordered.index(term.id) + 1  # 1-based
+    except ValueError:
+        raise ValueError("Chosen term not found in same-year queryset.")
