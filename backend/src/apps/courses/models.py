@@ -56,19 +56,27 @@ class CourseClass(models.Model):
     credits = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     hours_per_term = models.PositiveIntegerField(null=True, blank=True)
     start_date = models.DateField(
-        null=True, blank=True
+        null=True, blank=True, default=timezone.localdate
     )  # optional; not “Term”-bound in this version
     end_date = models.DateField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # class Meta:
-    #     unique_together = (("course", "index"),)
-    #     indexes = [models.Index(fields=["course", "index"])]
-
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.start_date:
+            self.start_date = timezone.localdate()
+        super().save(*args, **kwargs)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["course", "index"], name="uq_courseclass_course_index"
+            ),
+        ]
 
 
 class CourseInstructor(InstituteScopedModel, TimeStampedModel):

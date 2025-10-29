@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 from .models import Course, CourseClass
 
 
@@ -97,7 +98,12 @@ def ensure_course_classes(course: Course) -> None:
     # Create/rename
     for i in range(1, total + 1):
         cc, created = CourseClass.objects.get_or_create(
-            course=course, index=i, defaults={"name": f"{course.name}-{i}"}
+            course=course,
+            index=i,
+            defaults={
+                "name": f"{course.name}-{i}",
+                "start_date": timezone.localdate(),
+            },
         )
         expected = f"{course.name}-{i}"
         if not created and cc.name != expected:

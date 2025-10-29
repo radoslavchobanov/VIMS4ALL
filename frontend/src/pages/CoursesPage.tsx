@@ -638,7 +638,7 @@ function CourseClassEditorDialog({
             }
             inputProps={{ min: 0 }}
           />
-          <TextField
+          {/* <TextField
             label="Start date"
             type="date"
             value={form.start_date ?? ""}
@@ -646,7 +646,7 @@ function CourseClassEditorDialog({
               setForm((f) => ({ ...f, start_date: e.target.value || null }))
             }
             InputLabelProps={{ shrink: true }}
-          />
+          /> */}
           <TextField
             label="End date"
             type="date"

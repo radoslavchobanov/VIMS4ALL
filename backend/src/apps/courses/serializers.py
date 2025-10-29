@@ -137,13 +137,13 @@ class CourseClassWriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
-        start = attrs.get("start_date", getattr(self.instance, "start_date", None))
-        end = attrs.get("end_date", getattr(self.instance, "end_date", None))
-        if start and end and end < start:
+        inst = self.instance
+        if inst and "start_date" in attrs and attrs["start_date"] != inst.start_date:
             raise serializers.ValidationError(
-                {"end_date": "Must be on/after start_date."}
+                {"start_date": "Start date is set on creation and cannot be changed."}
             )
-        return attrs
+        # keep your existing start/end validation
+        return super().validate(attrs)
 
 
 # ============================
