@@ -104,7 +104,7 @@ class EmployeeCareerSerializer(serializers.ModelSerializer):
             "function",
             "start_date",
             "end_date",
-            "net_salary_due",
+            "gross_salary_due",
             "notes",
         ]
 

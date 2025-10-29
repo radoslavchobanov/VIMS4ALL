@@ -10,127 +10,305 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('institutes', '0001_initial'),
+        ("institutes", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Employee',
+            name="Employee",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('first_name', models.CharField(max_length=120)),
-                ('last_name', models.CharField(max_length=120)),
-                ('date_of_birth', models.DateField()),
-                ('gender', models.CharField(blank=True, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other/Unspecified')], max_length=12, null=True)),
-                ('family_state', models.CharField(blank=True, choices=[('single', 'Not married'), ('married', 'Married'), ('separated', 'Separated'), ('divorced', 'Divorced'), ('widowed', 'Widowed')], max_length=12, null=True)),
-                ('epin', models.CharField(max_length=32, unique=True)),
-                ('national_id', models.CharField(blank=True, max_length=64, null=True)),
-                ('nssf_id', models.CharField(blank=True, max_length=64, null=True)),
-                ('paye_id', models.CharField(blank=True, max_length=64, null=True)),
-                ('phone_number', models.CharField(blank=True, max_length=40, null=True)),
-                ('email', models.EmailField(blank=True, max_length=254, null=True)),
-                ('nationality', models.CharField(blank=True, max_length=60, null=True)),
-                ('district', models.CharField(blank=True, max_length=120, null=True)),
-                ('country', models.CharField(blank=True, max_length=120, null=True)),
-                ('sub_country', models.CharField(blank=True, max_length=120, null=True)),
-                ('parish', models.CharField(blank=True, max_length=120, null=True)),
-                ('cell_village', models.CharField(blank=True, max_length=120, null=True)),
-                ('previous_employer', models.CharField(blank=True, max_length=160, null=True)),
-                ('entry_date', models.DateField(blank=True, null=True)),
-                ('exit_date', models.DateField(blank=True, null=True)),
-                ('comments', models.TextField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now, editable=False)),
-                ('institute', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)ss', to='institutes.institute')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("first_name", models.CharField(max_length=120)),
+                ("last_name", models.CharField(max_length=120)),
+                ("date_of_birth", models.DateField()),
+                (
+                    "gender",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("male", "Male"),
+                            ("female", "Female"),
+                            ("other", "Other/Unspecified"),
+                        ],
+                        max_length=12,
+                        null=True,
+                    ),
+                ),
+                (
+                    "family_state",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("single", "Not married"),
+                            ("married", "Married"),
+                            ("separated", "Separated"),
+                            ("divorced", "Divorced"),
+                            ("widowed", "Widowed"),
+                        ],
+                        max_length=12,
+                        null=True,
+                    ),
+                ),
+                ("epin", models.CharField(max_length=32, unique=True)),
+                ("national_id", models.CharField(blank=True, max_length=64, null=True)),
+                ("nssf_id", models.CharField(blank=True, max_length=64, null=True)),
+                ("paye_id", models.CharField(blank=True, max_length=64, null=True)),
+                (
+                    "phone_number",
+                    models.CharField(blank=True, max_length=40, null=True),
+                ),
+                ("email", models.EmailField(blank=True, max_length=254, null=True)),
+                ("nationality", models.CharField(blank=True, max_length=60, null=True)),
+                ("district", models.CharField(blank=True, max_length=120, null=True)),
+                ("country", models.CharField(blank=True, max_length=120, null=True)),
+                (
+                    "sub_country",
+                    models.CharField(blank=True, max_length=120, null=True),
+                ),
+                ("parish", models.CharField(blank=True, max_length=120, null=True)),
+                (
+                    "cell_village",
+                    models.CharField(blank=True, max_length=120, null=True),
+                ),
+                (
+                    "previous_employer",
+                    models.CharField(blank=True, max_length=160, null=True),
+                ),
+                ("entry_date", models.DateField(blank=True, null=True)),
+                ("exit_date", models.DateField(blank=True, null=True)),
+                ("comments", models.TextField(blank=True, null=True)),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        default=django.utils.timezone.now, editable=False
+                    ),
+                ),
+                (
+                    "institute",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="%(class)ss",
+                        to="institutes.institute",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='EmployeeDependent',
+            name="EmployeeDependent",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=160)),
-                ('relation', models.CharField(max_length=60)),
-                ('gender', models.CharField(blank=True, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other/Unspecified')], max_length=12, null=True)),
-                ('phone_number_1', models.CharField(blank=True, max_length=40, null=True)),
-                ('phone_number_2', models.CharField(blank=True, max_length=40, null=True)),
-                ('address', models.CharField(blank=True, max_length=240, null=True)),
-                ('comments', models.TextField(blank=True, null=True)),
-                ('employee', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='dependents', to='employees.employee')),
-                ('institute', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)ss', to='institutes.institute')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=160)),
+                ("relation", models.CharField(max_length=60)),
+                (
+                    "gender",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("male", "Male"),
+                            ("female", "Female"),
+                            ("other", "Other/Unspecified"),
+                        ],
+                        max_length=12,
+                        null=True,
+                    ),
+                ),
+                (
+                    "phone_number_1",
+                    models.CharField(blank=True, max_length=40, null=True),
+                ),
+                (
+                    "phone_number_2",
+                    models.CharField(blank=True, max_length=40, null=True),
+                ),
+                ("address", models.CharField(blank=True, max_length=240, null=True)),
+                ("comments", models.TextField(blank=True, null=True)),
+                (
+                    "employee",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="dependents",
+                        to="employees.employee",
+                    ),
+                ),
+                (
+                    "institute",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="%(class)ss",
+                        to="institutes.institute",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['name', 'id'],
+                "ordering": ["name", "id"],
             },
         ),
         migrations.CreateModel(
-            name='EmployeeFunction',
+            name="EmployeeFunction",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=120)),
-                ('code', models.CharField(blank=True, max_length=32, null=True)),
-                ('institute', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='%(class)ss', to='institutes.institute')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=120)),
+                ("code", models.CharField(blank=True, max_length=32, null=True)),
+                (
+                    "institute",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="%(class)ss",
+                        to="institutes.institute",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['name'],
+                "ordering": ["name"],
             },
         ),
         migrations.CreateModel(
-            name='EmployeeCareer',
+            name="EmployeeCareer",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('start_date', models.DateField(default=django.utils.timezone.now)),
-                ('end_date', models.DateField(blank=True, null=True)),
-                ('net_salary_due', models.DecimalField(blank=True, decimal_places=2, max_digits=12, null=True)),
-                ('notes', models.TextField(blank=True)),
-                ('employee', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='career', to='employees.employee')),
-                ('institute', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)ss', to='institutes.institute')),
-                ('function', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='assignments', to='employees.employeefunction')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("start_date", models.DateField(default=django.utils.timezone.now)),
+                ("end_date", models.DateField(blank=True, null=True)),
+                (
+                    "net_salary_due",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=12, null=True
+                    ),
+                ),
+                ("notes", models.TextField(blank=True)),
+                (
+                    "employee",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="career",
+                        to="employees.employee",
+                    ),
+                ),
+                (
+                    "institute",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="%(class)ss",
+                        to="institutes.institute",
+                    ),
+                ),
+                (
+                    "function",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="assignments",
+                        to="employees.employeefunction",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-start_date', '-id'],
+                "ordering": ["-start_date", "-id"],
             },
         ),
         migrations.AddIndex(
-            model_name='employee',
-            index=models.Index(fields=['institute', 'last_name', 'first_name'], name='emp_name_idx'),
+            model_name="employee",
+            index=models.Index(
+                fields=["institute", "last_name", "first_name"], name="emp_name_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='employee',
-            index=models.Index(fields=['epin'], name='emp_epin_idx'),
+            model_name="employee",
+            index=models.Index(fields=["epin"], name="emp_epin_idx"),
         ),
         migrations.AddConstraint(
-            model_name='employee',
-            constraint=models.UniqueConstraint(fields=('institute', 'first_name', 'last_name', 'date_of_birth'), name='uq_employee_person_like'),
+            model_name="employee",
+            constraint=models.UniqueConstraint(
+                fields=("institute", "first_name", "last_name", "date_of_birth"),
+                name="uq_employee_person_like",
+            ),
         ),
         migrations.AddIndex(
-            model_name='employeedependent',
-            index=models.Index(fields=['employee'], name='emp_dep_employee_idx'),
+            model_name="employeedependent",
+            index=models.Index(fields=["employee"], name="emp_dep_employee_idx"),
         ),
         migrations.AddIndex(
-            model_name='employeefunction',
-            index=models.Index(condition=models.Q(('institute__isnull', True)), fields=['name'], name='empfunc_name_global_idx'),
+            model_name="employeefunction",
+            index=models.Index(
+                condition=models.Q(("institute__isnull", True)),
+                fields=["name"],
+                name="empfunc_name_global_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='employeefunction',
-            index=models.Index(condition=models.Q(('institute__isnull', False)), fields=['institute', 'name'], name='empfunc_inst_name_idx'),
+            model_name="employeefunction",
+            index=models.Index(
+                condition=models.Q(("institute__isnull", False)),
+                fields=["institute", "name"],
+                name="empfunc_inst_name_idx",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='employeefunction',
-            constraint=models.UniqueConstraint(condition=models.Q(('institute__isnull', True)), fields=('name',), name='uq_empfunc_global_name'),
+            model_name="employeefunction",
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("institute__isnull", True)),
+                fields=("name",),
+                name="uq_empfunc_global_name",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='employeefunction',
-            constraint=models.UniqueConstraint(condition=models.Q(('institute__isnull', False)), fields=('institute', 'name'), name='uq_empfunc_per_institute_name'),
+            model_name="employeefunction",
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("institute__isnull", False)),
+                fields=("institute", "name"),
+                name="uq_empfunc_per_institute_name",
+            ),
         ),
         migrations.AddIndex(
-            model_name='employeecareer',
-            index=models.Index(fields=['employee', 'end_date'], name='emp_car_emp_end_idx'),
+            model_name="employeecareer",
+            index=models.Index(
+                fields=["employee", "end_date"], name="emp_car_emp_end_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='employeecareer',
-            index=models.Index(fields=['function', 'end_date'], name='emp_car_fun_end_idx'),
+            model_name="employeecareer",
+            index=models.Index(
+                fields=["function", "end_date"], name="emp_car_fun_end_idx"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='employeecareer',
-            constraint=models.UniqueConstraint(condition=models.Q(('end_date__isnull', True)), fields=('institute', 'employee'), name='uq_one_open_career_row_per_employee'),
+            model_name="employeecareer",
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("end_date__isnull", True)),
+                fields=("institute", "employee"),
+                name="uq_one_open_career_row_per_employee",
+            ),
         ),
     ]

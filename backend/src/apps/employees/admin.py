@@ -41,7 +41,7 @@ class EmployeeCareerAdmin(admin.ModelAdmin):
         "function",
         "start_date",
         "end_date",
-        "net_salary_due",
+        "gross_salary_due",
         "institute",
     )
     list_filter = ("function",)

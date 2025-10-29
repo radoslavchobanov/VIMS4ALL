@@ -136,7 +136,7 @@ class EmployeeFunction(OptionallyScopedModel):
 
 class EmployeeCareer(InstituteScopedModel):
     """
-    Career history: when an employee serves a function, and net salary (per the form).
+    Career history: when an employee serves a function, and gross salary (per the form).
     One open row (end_date IS NULL) per employee.
     """
 
@@ -149,8 +149,8 @@ class EmployeeCareer(InstituteScopedModel):
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(null=True, blank=True)
 
-    # Using Decimal for currency-agnostic “Net salary due” on the form
-    net_salary_due = models.DecimalField(
+    # Using Decimal for currency-agnostic “Gross salary due” on the form
+    gross_salary_due = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True
     )
     notes = models.TextField(blank=True)

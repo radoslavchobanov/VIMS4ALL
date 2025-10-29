@@ -968,7 +968,7 @@ function EmployeeCareerTab({
     function: number | string;
     start_date: string;
     end_date: string | null;
-    net_salary_due: string | null;
+    gross_salary_due: string | null;
     notes: string;
   };
   type EmpFunction = { id: number | string; name: string };
@@ -1019,7 +1019,7 @@ function EmployeeCareerTab({
       function: "" as any,
       start_date: today(),
       end_date: null,
-      net_salary_due: null,
+      gross_salary_due: null,
       notes: "",
     });
     setOpenEdit(true);
@@ -1036,7 +1036,7 @@ function EmployeeCareerTab({
       function: editing.function,
       start_date: editing.start_date,
       end_date: editing.end_date,
-      net_salary_due: editing.net_salary_due,
+      gross_salary_due: editing.gross_salary_due,
       notes: editing.notes,
     };
     if (editing.id) {
@@ -1064,7 +1064,7 @@ function EmployeeCareerTab({
         return f?.name ?? row.function;
       },
     },
-    { field: "net_salary_due", headerName: "Net salary due", width: 140 },
+    { field: "gross_salary_due", headerName: "Gross salary due", width: 140 },
     { field: "notes", headerName: "Notes", flex: 1, minWidth: 160 },
     {
       field: "actions",
@@ -1161,12 +1161,12 @@ function EmployeeCareerTab({
               InputLabelProps={{ shrink: true }}
             />
             <TextField
-              label="Net salary due"
+              label="Gross salary due"
               type="number"
-              value={editing?.net_salary_due ?? ""}
+              value={editing?.gross_salary_due ?? ""}
               onChange={(e) =>
                 setEditing((s) =>
-                  s ? { ...s, net_salary_due: e.target.value || null } : s
+                  s ? { ...s, gross_salary_due: e.target.value || null } : s
                 )
               }
             />
