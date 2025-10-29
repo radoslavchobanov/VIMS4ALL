@@ -2,7 +2,6 @@ from django.db import models
 from apps.common.models import InstituteScopedModel
 from django.utils import timezone
 from django.db.models import Q
-from rest_framework import serializers
 
 
 class Student(InstituteScopedModel):
@@ -82,31 +81,6 @@ class Student(InstituteScopedModel):
             and self.entry_date <= self.date_of_birth
         ):
             raise ValidationError("Entry date must be after date of birth.")
-
-
-class AcademicTerm(InstituteScopedModel):
-    name = models.CharField(max_length=120)
-    start_date = models.DateField()
-    end_date = models.DateField()
-    is_closed = models.BooleanField(default=False)
-
-    class Meta:
-        unique_together = ("institute", "name")
-        ordering = ["-start_date"]
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-
-        if self.end_date < self.start_date:
-            raise ValidationError("end_date must be on/after start_date.")
-        # Business rule: prevent overlapping active terms (optional but recommended)
-        qs = (
-            AcademicTerm.objects.filter(institute=self.institute)
-            .exclude(pk=self.pk)
-            .filter(start_date__lte=self.end_date, end_date__gte=self.start_date)
-        )
-        if qs.exists():
-            raise ValidationError("Term dates overlap with an existing term.")
 
 
 class StudentCustodian(InstituteScopedModel):
@@ -220,7 +194,7 @@ class StudentStatus(InstituteScopedModel):
     )
     status = models.CharField(max_length=20, choices=Status.choices)
     term = models.ForeignKey(
-        "students.AcademicTerm", null=True, blank=True, on_delete=models.SET_NULL
+        "terms.AcademicTerm", null=True, blank=True, on_delete=models.SET_NULL
     )
     course_class = models.ForeignKey(
         "courses.CourseClass", null=True, blank=True, on_delete=models.SET_NULL

@@ -8,7 +8,7 @@ from django.db.models import QuerySet
 from django.http import HttpResponse
 from openpyxl import Workbook
 
-from .models import Student, StudentCustodian, StudentStatus, AcademicTerm
+from .models import Student, StudentCustodian, StudentStatus
 from .serializers import (
     PhotoUploadResponseSerializer,
     StudentPhotoUploadSerializer,
@@ -17,7 +17,6 @@ from .serializers import (
     StudentStatusReadSerializer,
     StudentStatusWriteSerializer,
     StudentWriteSerializer,
-    AcademicTermSerializer,
     STATUS_TRANSITIONS,
 )
 from .services.import_xlsx import import_students_xlsx, CANONICAL_COLUMNS
@@ -205,12 +204,6 @@ class StudentViewSet(ScopedModelViewSet):
         )
         wb.save(resp)
         return resp
-
-
-class AcademicTermViewSet(ScopedModelViewSet):
-    model = AcademicTerm
-    serializer_class = AcademicTermSerializer
-    # perform_create inherited sets institute_id
 
 
 class StudentCustodianViewSet(ScopedModelViewSet):

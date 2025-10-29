@@ -2,7 +2,6 @@ from rest_framework.routers import DefaultRouter
 
 from apps.students.views import (
     StudentViewSet,
-    AcademicTermViewSet,
     StudentCustodianViewSet,
     StudentStatusViewSet,
 )
@@ -24,6 +23,8 @@ from apps.finance.views import (
 )
 from apps.institutes.views import InstituteAdminViewSet, InstituteViewSet
 from apps.accounts.views import AccountAdminViewSet
+from apps.terms.views import AcademicTermViewSet
+
 
 router = DefaultRouter()
 
@@ -35,10 +36,12 @@ router.register(r"admin/accounts", AccountAdminViewSet, basename="admin-accounts
 # INSTITUTE ENDPOINTS
 router.register(r"institutes", InstituteViewSet, basename="institutes")
 
+# TERM ENDPOINTS
+router.register(r"academic-terms", AcademicTermViewSet, basename="academic-terms")
+
 
 # STUDENT ENDPOINTS
 router.register(r"students", StudentViewSet, basename="students")
-router.register(r"academic-terms", AcademicTermViewSet, basename="academic-terms")
 router.register(
     r"student-custodians", StudentCustodianViewSet, basename="student-custodians"
 )

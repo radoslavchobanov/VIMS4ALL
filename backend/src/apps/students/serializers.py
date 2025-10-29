@@ -1,10 +1,12 @@
 from rest_framework import serializers
 
 from apps.courses.models import CourseClass
+from apps.terms.models import AcademicTerm
+from apps.terms.serializers import AcademicTermReadSerializer
+from apps.terms.services import get_nearest_term
 
-from .models import Status, Student, StudentCustodian, StudentStatus, AcademicTerm
+from .models import Status, Student, StudentCustodian, StudentStatus
 from .services.photos import ensure_student_photo_or_default
-from .services.terms import get_nearest_term
 from .services.dedup import has_potential_duplicate
 
 from apps.common.media import public_media_url
@@ -130,20 +132,6 @@ class StudentPhotoUploadSerializer(serializers.Serializer):
 
 class PhotoUploadResponseSerializer(serializers.Serializer):
     photo_url = serializers.URLField()
-
-
-class AcademicTermSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AcademicTerm
-        fields = ["id", "name", "start_date", "end_date"]
-
-    def create(self, validated_data):
-        request = self.context["request"]
-        user = request.user
-        if not getattr(user, "institute_id", None):
-            raise serializers.ValidationError("User has no institute assigned.")
-        validated_data["institute_id"] = user.institute_id
-        return super().create(validated_data)
 
 
 class StudentCustodianSerializer(serializers.ModelSerializer):
@@ -288,7 +276,7 @@ class CourseClassMinSerializer(serializers.ModelSerializer):
 
 
 class StudentStatusReadSerializer(serializers.ModelSerializer):
-    term = AcademicTermSerializer(read_only=True)
+    term = AcademicTermReadSerializer(read_only=True)
     term_name = serializers.CharField(source="term.name", read_only=True)
     course_class = CourseClassMinSerializer(read_only=True)
     class_name = serializers.CharField(source="course_class.name", read_only=True)

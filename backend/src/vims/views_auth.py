@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.institutes.models import Institute
 from apps.employees.models import Employee, EmployeeCareer
 from apps.common.media import public_media_url
-from apps.students.models import AcademicTerm
+from apps.terms.models import AcademicTerm
 
 User = get_user_model()
 
@@ -62,13 +62,12 @@ class MeView(APIView):
             active_term_payload = None
             today = datetime.today()
             active_term = (
-                AcademicTerm.all_objects.filter(
+                AcademicTerm.objects.filter(
                     institute_id=iid,
-                    is_closed=False,
                     start_date__lte=today,
                     end_date__gte=today,
                 )
-                .only("id", "name", "start_date", "end_date", "is_closed")
+                .only("id", "name", "start_date", "end_date")
                 .first()
             )
             if active_term:

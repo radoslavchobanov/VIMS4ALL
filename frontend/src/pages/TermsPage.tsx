@@ -1,4 +1,3 @@
-// src/pages/TermsPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -31,7 +30,6 @@ type AcademicTermWrite = {
   name: string;
   start_date: string; // YYYY-MM-DD
   end_date: string; // YYYY-MM-DD
-  is_closed?: boolean;
 };
 
 export default function TermsPage() {
@@ -69,12 +67,6 @@ export default function TermsPage() {
       { field: "name", headerName: "Name", flex: 1, minWidth: 180 },
       { field: "start_date", headerName: "Start", width: 140 },
       { field: "end_date", headerName: "End", width: 140 },
-      {
-        field: "is_closed",
-        headerName: "Closed",
-        width: 110,
-        valueGetter: (_v, r) => (r.is_closed ? "Yes" : "No"),
-      },
     ],
     []
   );
@@ -171,30 +163,61 @@ function TermForm({
 }) {
   const mode: "create" | "edit" = initial ? "edit" : "create";
   const [tab, setTab] = useState(0);
+
+  // NEW: local state for server-generated name
+  const [suggestedName, setSuggestedName] = useState<string>("");
+
   useEffect(() => {
     if (open) setTab(0);
+    // reset suggestion whenever the dialog opens for a new create
+    if (open && !initial) setSuggestedName("");
   }, [open, initial?.id]);
 
   const empty = (): AcademicTermWrite => ({
-    name: "",
+    name: suggestedName || "", // seed with suggestedName (may be "")
     start_date: "",
     end_date: "",
-    is_closed: false,
   });
+
   const mapRead = (t: AcademicTerm): AcademicTermWrite => ({
     name: t.name ?? "",
     start_date: t.start_date ?? "",
     end_date: t.end_date ?? "",
-    is_closed: !!t.is_closed,
   });
 
+  // When opening the dialog in CREATE mode, fetch the next name preview
+  useEffect(() => {
+    const run = async () => {
+      if (open && !initial && !suggestedName) {
+        try {
+          const r = await api.get<{
+            name: string;
+            year: number;
+            ordinal: number;
+          }>(`${TERMS_ENDPOINT}next-name/`);
+          setSuggestedName(r.data.name); // <-- store only; form will be re-seeded on remount via key+emptyFactory
+        } catch {
+          // ignore; backend still generates on POST
+        }
+      }
+    };
+    run();
+  }, [open, initial, suggestedName]);
+
   const onSubmit = async (payload: AcademicTermWrite) => {
-    if (mode === "create") await api.post(TERMS_ENDPOINT, payload);
-    else await api.patch(`${TERMS_ENDPOINT}${initial!.id}/`, payload);
+    const { start_date, end_date } = payload;
+    if (mode === "create")
+      await api.post(TERMS_ENDPOINT, { start_date, end_date });
+    else
+      await api.patch(`${TERMS_ENDPOINT}${initial!.id}/`, {
+        start_date,
+        end_date,
+      });
   };
 
   return (
     <EntityFormDialog<AcademicTermWrite, AcademicTerm>
+      key={`term-form-${mode}-${initial?.id ?? "new"}-${suggestedName}`} // <-- forces form re-init when name arrives
       title={mode === "create" ? "Create Term" : "Edit Term"}
       open={open}
       mode={mode}
@@ -211,7 +234,6 @@ function TermForm({
             <Tab label="General" />
           </Tabs>
 
-          {/* General only (no Courses tab anymore) */}
           <Box
             sx={{
               display: "grid",
@@ -222,18 +244,16 @@ function TermForm({
             <TextField
               label="Name"
               value={form.name}
-              onChange={(e) => setForm({ name: e.target.value })}
+              InputProps={{ readOnly: true }}
+              helperText={
+                mode === "create"
+                  ? suggestedName
+                    ? "Generated automatically"
+                    : "Generating…"
+                  : "Generated automatically"
+              }
               required
             />
-            <TextField
-              select
-              label="Closed"
-              value={form.is_closed ? "1" : "0"}
-              onChange={(e) => setForm({ is_closed: e.target.value === "1" })}
-            >
-              <MenuItem value="0">No</MenuItem>
-              <MenuItem value="1">Yes</MenuItem>
-            </TextField>
           </Box>
 
           <Box
