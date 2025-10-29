@@ -347,6 +347,8 @@ function EmployeesForm({
       entry_date: "",
       exit_date: "",
       comments: "",
+      bank_name: "",
+      bank_account_number: "",
     } as unknown as EmployeeWrite);
 
   const mapRead = (e: EmployeeRead): EmployeeWrite => {
@@ -372,6 +374,8 @@ function EmployeesForm({
       entry_date: any.entry_date ?? "",
       exit_date: any.exit_date ?? "",
       comments: any.comments ?? "",
+      bank_name: any.bank_name ?? "",
+      bank_account_number: any.bank_account_number ?? "",
     } as EmployeeWrite;
   };
 
@@ -686,6 +690,26 @@ function EmployeeGeneralTab({
         value={(form as any).comments ?? ""}
         onChange={(e) => setForm({ comments: e.target.value } as any)}
       />
+      <Box
+        sx={{
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+        }}
+      >
+        <TextField
+          label="Bank name"
+          value={(form as any).bank_name ?? ""}
+          onChange={(e) => setForm({ bank_name: e.target.value } as any)}
+        />
+        <TextField
+          label="Bank account number"
+          value={(form as any).bank_account_number ?? ""}
+          onChange={(e) =>
+            setForm({ bank_account_number: e.target.value } as any)
+          }
+        />
+      </Box>
     </>
   );
 }

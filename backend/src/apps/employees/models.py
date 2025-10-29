@@ -7,6 +7,10 @@ from apps.employees.managers import EmployeeScopedManager
 
 
 class Employee(InstituteScopedModel):
+
+    objects = EmployeeScopedManager()
+    all_objects = models.Manager()
+
     class Gender(models.TextChoices):
         MALE = "male", "Male"
         FEMALE = "female", "Female"
@@ -57,9 +61,6 @@ class Employee(InstituteScopedModel):
     comments = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
-    objects = EmployeeScopedManager()
-    all_objects = models.Manager()
-
     system_user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -67,6 +68,9 @@ class Employee(InstituteScopedModel):
         on_delete=models.SET_NULL,
         related_name="employee_profile",
     )
+
+    bank_name = models.CharField(max_length=255, blank=True, null=True)
+    bank_account_number = models.CharField(max_length=64, blank=True, null=True)
 
     @property
     def have_system_account(self) -> bool:

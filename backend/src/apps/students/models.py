@@ -53,6 +53,9 @@ class Student(InstituteScopedModel):
 
     comments = models.TextField(null=True, blank=True)
 
+    bank_name = models.CharField(max_length=255, blank=True, null=True)
+    bank_account_number = models.CharField(max_length=64, blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

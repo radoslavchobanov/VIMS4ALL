@@ -270,6 +270,8 @@ function StudentsForm({
     entry_date: "",
     exit_date: "",
     comments: "",
+    bank_name: "",
+    bank_account_number: "",
   });
 
   const mapRead = (s: StudentRead): StudentWrite => ({
@@ -292,6 +294,8 @@ function StudentsForm({
     entry_date: s.entry_date ?? "",
     exit_date: s.exit_date ?? "",
     comments: s.comments ?? "",
+    bank_name: (s as any).bank_name ?? "",
+    bank_account_number: (s as any).bank_account_number ?? "",
   });
 
   function toNullPatch<T extends Record<string, unknown>>(obj: T): Partial<T> {
@@ -892,6 +896,26 @@ function StudentGeneralTab({
         value={form.comments ?? ""}
         onChange={(e) => setForm({ comments: e.target.value })}
       />
+      <Box
+        sx={{
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+        }}
+      >
+        <TextField
+          label="Bank name"
+          value={(form as any).bank_name ?? ""}
+          onChange={(e) => setForm({ bank_name: e.target.value } as any)}
+        />
+        <TextField
+          label="Bank account number"
+          value={(form as any).bank_account_number ?? ""}
+          onChange={(e) =>
+            setForm({ bank_account_number: e.target.value } as any)
+          }
+        />
+      </Box>
     </>
   );
 }

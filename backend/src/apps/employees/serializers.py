@@ -78,6 +78,8 @@ class EmployeeReadSerializer(serializers.ModelSerializer):
             "entry_date",
             "exit_date",
             "comments",
+            "bank_name",
+            "bank_account_number",
             "created_at",
             "photo_url",
         ]
