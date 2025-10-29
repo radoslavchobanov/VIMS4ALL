@@ -1,8 +1,6 @@
-# apps/employees/services/provision_institute_admin_employee.py
-from __future__ import annotations
-
 from django.db import transaction
 from django.utils import timezone
+from django.contrib.auth.models import Group
 
 from apps.employees.models import Employee, EmployeeCareer, EmployeeFunction
 from apps.accounts.models import User
@@ -105,3 +103,28 @@ def provision_institute_admin_employee(user: User) -> Employee:
         )
 
     return emp
+
+
+@transaction.atomic
+def assign_default_role(user: User, *, is_institute_admin: bool = False) -> None:
+    """
+    Business rule:
+      - If is_institute_admin -> add 'institute_admin' (and remove 'employee' if you want them disjoint).
+      - Else -> add 'employee'.
+    Idempotent; safe to call multiple times.
+    """
+    employee = Group.objects.get(name="employee")
+    admin = Group.objects.get(name="institute_admin")
+
+    if is_institute_admin:
+        user.groups.add(admin)
+        # Choose one of the two policies (I recommend disjoint roles):
+        # (A) Disjoint:
+        user.groups.remove(employee)
+        # (B) Hierarchical (admin also has employee permissions):
+        # user.groups.add(employee)
+    else:
+        # Not admin => ensure employee
+        user.groups.add(employee)
+        # Ensure not accidentally in admin (if you want strict disjointness):
+        # user.groups.remove(admin)

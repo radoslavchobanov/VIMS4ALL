@@ -16,6 +16,7 @@ from django.core.mail import EmailMultiAlternatives
 from apps.employees.models import Employee
 from apps.common.mailer import mailer
 from apps.employees.models import Employee
+from apps.accounts.services import assign_default_role
 
 User = get_user_model()
 
@@ -52,6 +53,7 @@ def create_employee_account_custom(
         last_name=employee.last_name,
         is_active=True,
     )
+    assign_default_role(user)
     # Attach institute (your User has FK institute)
     if getattr(user, "institute_id", None) != iid:
         user.institute_id = iid
