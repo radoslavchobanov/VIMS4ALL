@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.employees.selectors import q_active_instructors
-from .models import Course, CourseClass, CourseInstructor
+from .models import CertificateType, Course, CourseClass, CourseInstructor
 from .serializers import (
     CourseReadSerializer,
     CourseWriteSerializer,
@@ -74,9 +74,15 @@ class CourseClassViewSet(viewsets.ModelViewSet):
             else CourseClassReadSerializer
         )
 
-    # Optional: hard-block create/delete if you want classes governed only by Course:
-    # def create(self, request, *args, **kwargs): return Response({"detail":"Creating classes directly is not allowed."}, status=405)
-    # def destroy(self, request, *args, **kwargs): return Response({"detail":"Deleting classes directly is not allowed."}, status=405)
+    @action(detail=False, methods=["get"], url_path="choices")
+    def choices(self, request):
+        return Response(
+            {
+                "certificate_type": [
+                    {"value": c.value, "display_name": c.label} for c in CertificateType
+                ]
+            }
+        )
 
 
 class CourseInstructorViewSet(viewsets.ModelViewSet):

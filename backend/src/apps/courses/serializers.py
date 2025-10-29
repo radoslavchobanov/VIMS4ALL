@@ -3,7 +3,7 @@ from django.db import transaction
 from rest_framework import serializers
 from apps.employees.models import Employee
 from apps.employees.selectors import q_active_instructors
-from .models import Course, CourseClass, CourseInstructor
+from .models import CertificateType, Course, CourseClass, CourseInstructor
 from . import services
 
 
@@ -120,6 +120,10 @@ class CourseClassReadSerializer(serializers.ModelSerializer):
 
 class CourseClassWriteSerializer(serializers.ModelSerializer):
     """Update mutable attributes only; creation/destruction is managed by Course."""
+
+    certificate_type = serializers.ChoiceField(
+        choices=[c.value for c in CertificateType], required=False, allow_blank=True
+    )
 
     class Meta:
         model = CourseClass

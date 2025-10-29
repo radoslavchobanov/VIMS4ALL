@@ -288,7 +288,7 @@ function CoursesForm({
       onSubmit={onSubmit}
       onSuccess={mode === "create" ? onCreated : onUpdated}
       onError={onError}
-      maxWidth="1"
+      maxWidth="lg"
       renderFields={(form, update) => (
         <>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 1 }}>
@@ -558,6 +558,28 @@ function CourseClassEditorDialog({
     }
   };
 
+  const [certOptions, setCertOptions] = useState<
+    { value: string; display_name: string }[]
+  >([]);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const r = await api.get(
+          `${COURSE_CLASSES_COLLECTION_ENDPOINT}choices/`
+        );
+        setCertOptions(r.data?.certificate_type ?? []);
+      } catch {
+        setCertOptions([
+          { value: "certificate", display_name: "Certificate" },
+          { value: "diploma", display_name: "Diploma" },
+          { value: "other", display_name: "Other" },
+        ]);
+      }
+    })();
+  }, [open]);
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Edit {initial.name}</DialogTitle>
@@ -577,12 +599,20 @@ function CourseClassEditorDialog({
             }
           />
           <TextField
+            select
             label="Certificate type"
             value={(form.certificate_type ?? "") as string}
             onChange={(e) =>
               setForm((f) => ({ ...f, certificate_type: e.target.value }))
             }
-          />
+          >
+            <MenuItem value="">{/* empty = clear */}</MenuItem>
+            {certOptions.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>
+                {opt.display_name}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             label="Credits"
             type="number"
