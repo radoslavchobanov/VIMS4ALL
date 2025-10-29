@@ -101,7 +101,7 @@ class MeView(APIView):
             # Current (open) career row -> function
             cur = (
                 EmployeeCareer.all_objects.select_related("function")
-                .filter(employee_id=emp.id, end_date__isnull=True)
+                .filter(employee_id=emp.id)
                 .only("function_id", "employee_id")
                 .first()
             )

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils import timezone
 
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
 from apps.common.generate_pin import generate_pin
@@ -138,8 +139,12 @@ class EmployeeCareerSerializer(serializers.ModelSerializer):
             "employee",
             "function",
             "start_date",
-            "end_date",
-            "gross_salary_due",
+            "total_salary",
+            "gross_salary",
+            "take_home_salary",
+            "paye",
+            "employee_nssf",
+            "institute_nssf",
             "notes",
         ]
 
@@ -215,8 +220,11 @@ class EmployeeListSerializer(serializers.ModelSerializer):
         if cf is not None:
             return cf
         row = (
-            EmployeeCareer.all_objects.filter(employee_id=obj.id, end_date__isnull=True)
+            EmployeeCareer.all_objects.filter(
+                employee_id=obj.id, start_date__lte=timezone.now().date()
+            )
             .select_related("function")
+            .order_by("-start_date", "-id")
             .first()
         )
         return row.function.name if row else None

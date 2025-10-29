@@ -991,8 +991,12 @@ function EmployeeCareerTab({
     employee: number | string;
     function: number | string;
     start_date: string;
-    end_date: string | null;
-    gross_salary_due: string | null;
+    total_salary: string | null;
+    gross_salary: string | null;
+    take_home_salary: string | null;
+    paye: string | null;
+    employee_nssf: string | null;
+    institute_nssf: string | null;
     notes: string;
   };
   type EmpFunction = { id: number | string; name: string };
@@ -1026,11 +1030,7 @@ function EmployeeCareerTab({
     load();
   }, [empId]);
 
-  const openCurrent = () => rows.find((r) => !r.end_date);
-
   async function endCurrent() {
-    const cur = openCurrent();
-    if (!cur) return;
     if (!window.confirm("End current assignment?")) return;
     await api.patch(`${EMPLOYEE_CAREERS_ENDPOINT}${employeeId}/`);
     await load();
@@ -1042,8 +1042,12 @@ function EmployeeCareerTab({
       employee: empId,
       function: "" as any,
       start_date: today(),
-      end_date: null,
-      gross_salary_due: null,
+      total_salary: null,
+      gross_salary: null,
+      take_home_salary: null,
+      paye: null,
+      employee_nssf: null,
+      institute_nssf: null,
       notes: "",
     });
     setOpenEdit(true);
@@ -1059,8 +1063,12 @@ function EmployeeCareerTab({
       employee: editing.employee,
       function: editing.function,
       start_date: editing.start_date,
-      end_date: editing.end_date,
-      gross_salary_due: editing.gross_salary_due,
+      total_salary: editing.total_salary,
+      gross_salary: editing.gross_salary,
+      take_home_salary: editing.take_home_salary,
+      paye: editing.paye,
+      employee_nssf: editing.employee_nssf,
+      institute_nssf: editing.institute_nssf,
       notes: editing.notes,
     };
     if (editing.id) {
@@ -1077,18 +1085,21 @@ function EmployeeCareerTab({
 
   const cols: GridColDef<Career>[] = [
     { field: "start_date", headerName: "Start", width: 120 },
-    { field: "end_date", headerName: "End", width: 120 },
     {
       field: "function",
       headerName: "Function",
       flex: 1,
       minWidth: 160,
-      valueGetter: (_value, row) => {
-        const f = funcs.find((x) => String(x.id) === String(row.function));
-        return f?.name ?? row.function;
-      },
+      valueGetter: (_v, row) =>
+        funcs.find((f) => String(f.id) === String(row.function))?.name ??
+        row.function,
     },
-    { field: "gross_salary_due", headerName: "Gross salary due", width: 140 },
+    { field: "total_salary", headerName: "Total", width: 120 },
+    { field: "gross_salary", headerName: "Gross", width: 120 },
+    { field: "take_home_salary", headerName: "Take-home", width: 130 },
+    { field: "paye", headerName: "PAYE", width: 120 },
+    { field: "employee_nssf", headerName: "Emp NSSF", width: 120 },
+    { field: "institute_nssf", headerName: "Inst NSSF", width: 120 },
     { field: "notes", headerName: "Notes", flex: 1, minWidth: 160 },
     {
       field: "actions",
@@ -1111,7 +1122,6 @@ function EmployeeCareerTab({
           variant="contained"
           startIcon={<AddIcon />}
           onClick={openCreate}
-          disabled={!!openCurrent()}
         >
           New assignment
         </Button>
@@ -1173,24 +1183,64 @@ function EmployeeCareerTab({
               InputLabelProps={{ shrink: true }}
               required
             />
+
             <TextField
-              label="End date"
-              type="date"
-              value={editing?.end_date ?? ""}
+              label="Total salary"
+              type="number"
+              value={editing?.total_salary ?? ""}
               onChange={(e) =>
                 setEditing((s) =>
-                  s ? { ...s, end_date: e.target.value || null } : s
+                  s ? { ...s, total_salary: e.target.value || null } : s
                 )
               }
-              InputLabelProps={{ shrink: true }}
             />
             <TextField
-              label="Gross salary due"
+              label="Gross salary"
               type="number"
-              value={editing?.gross_salary_due ?? ""}
+              value={editing?.gross_salary ?? ""}
               onChange={(e) =>
                 setEditing((s) =>
-                  s ? { ...s, gross_salary_due: e.target.value || null } : s
+                  s ? { ...s, gross_salary: e.target.value || null } : s
+                )
+              }
+            />
+            <TextField
+              label="Take-home salary"
+              type="number"
+              value={editing?.take_home_salary ?? ""}
+              onChange={(e) =>
+                setEditing((s) =>
+                  s ? { ...s, take_home_salary: e.target.value || null } : s
+                )
+              }
+            />
+            <TextField
+              label="PAYE"
+              type="number"
+              value={editing?.paye ?? ""}
+              onChange={(e) =>
+                setEditing((s) =>
+                  s ? { ...s, paye: e.target.value || null } : s
+                )
+              }
+            />
+            <TextField
+              label="Emp NSSF"
+              type="number"
+              value={editing?.employee_nssf ?? ""}
+              onChange={(e) =>
+                setEditing((s) =>
+                  s ? { ...s, employee_nssf: e.target.value || null } : s
+                )
+              }
+            />
+            <TextField
+              label="Inst NSSF"
+              type="number"
+              value={editing?.institute_nssf ?? ""}
+              onChange={(e) =>
+                setEditing((s) =>
+                  s ? { ...s, institute_nssf: e.target.value || null } : s
                 )
               }
             />

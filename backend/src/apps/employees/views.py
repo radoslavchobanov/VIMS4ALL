@@ -9,6 +9,7 @@ from rest_framework.exceptions import PermissionDenied
 from drf_spectacular.utils import extend_schema
 from django.db.models import Q, OuterRef, Subquery
 from django.conf import settings
+from django.utils import timezone
 
 from apps.common.permissions import HasInstitute, HasEmployeeFunctionCode
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
@@ -75,10 +76,14 @@ class EmployeeViewSet(ScopedModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        # annotate current function name for performance
-        open_fun = EmployeeCareer.all_objects.filter(
-            employee_id=OuterRef("pk"), end_date__isnull=True
-        ).values("function__name")[:1]
+        today = timezone.now().date()
+        open_fun = (
+            EmployeeCareer.all_objects.filter(
+                employee_id=OuterRef("pk"), start_date__lte=today
+            )
+            .order_by("-start_date", "-id")
+            .values("function__name")[:1]
+        )
         return qs.annotate(_current_function_name=Subquery(open_fun))
 
     @extend_schema(

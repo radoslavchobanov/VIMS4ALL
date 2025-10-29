@@ -154,33 +154,46 @@ class EmployeeCareer(InstituteScopedModel):
         EmployeeFunction, on_delete=models.PROTECT, related_name="assignments"
     )
     start_date = models.DateField(default=timezone.now)
-    end_date = models.DateField(null=True, blank=True)
 
-    # Using Decimal for currency-agnostic “Gross salary due” on the form
-    gross_salary_due = models.DecimalField(
+    # ── Salary breakdown ──────────────────────────────────────────────────────
+    # Choose appropriate precision for local currency; 12,2 is common.
+    total_salary = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True
     )
+    gross_salary = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    take_home_salary = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    paye = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )  # PAYE tax
+    employee_nssf = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    institute_nssf = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+
     notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-start_date", "-id"]
         constraints = [
             models.UniqueConstraint(
-                fields=["institute", "employee"],
-                condition=Q(end_date__isnull=True),
-                name="uq_one_open_career_row_per_employee",
-            )
+                fields=["institute", "employee", "start_date"],
+                name="uq_emp_career_unique_start_per_employee",
+            ),
         ]
         indexes = [
-            models.Index(fields=["employee", "end_date"], name="emp_car_emp_end_idx"),
-            models.Index(fields=["function", "end_date"], name="emp_car_fun_end_idx"),
+            models.Index(
+                fields=["employee", "start_date"], name="emp_car_emp_start_idx"
+            ),
+            models.Index(
+                fields=["function", "start_date"], name="emp_car_fun_start_idx"
+            ),
         ]
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-
-        if self.end_date and self.end_date < self.start_date:
-            raise ValidationError("End date must be on/after start date.")
 
 
 class EmployeeDependent(InstituteScopedModel):

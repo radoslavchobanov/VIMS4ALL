@@ -40,11 +40,14 @@ class EmployeeCareerAdmin(admin.ModelAdmin):
         "employee",
         "function",
         "start_date",
-        "end_date",
-        "gross_salary_due",
-        "institute",
+        "total_salary",
+        "gross_salary",
+        "take_home_salary",
+        "paye",
+        "employee_nssf",
+        "institute_nssf",
     )
-    list_filter = ("function",)
+    list_filter = ("function", "start_date")
 
 
 @admin.register(EmployeeDependent)
