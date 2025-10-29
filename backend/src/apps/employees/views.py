@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from drf_spectacular.utils import extend_schema
 from django.db.models import Q, OuterRef, Subquery
 from django.conf import settings
@@ -12,12 +13,13 @@ from django.conf import settings
 from apps.common.permissions import HasInstitute, HasEmployeeFunctionCode
 from .models import Employee, EmployeeFunction, EmployeeCareer, EmployeeDependent
 from .serializers import (
+    EmployeeFunctionSerializer,
+    EmployeeFunctionWriteSerializer,
     EmployeeListSerializer,
     EmployeeReadSerializer,
     EmployeeWriteSerializer,
     EmployeePhotoUploadSerializer,
     EmployeePhotoUploadResponseSerializer,
-    EmployeeFunctionSerializer,
     EmployeeCareerSerializer,
     EmployeeDependentSerializer,
 )
@@ -249,23 +251,68 @@ class OptionallyScopedModelViewSet(viewsets.ModelViewSet):
 
 class EmployeeFunctionViewSet(OptionallyScopedModelViewSet):
     model = EmployeeFunction
-    serializer_class = EmployeeFunctionSerializer
+    # serializer_class set dynamically
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return EmployeeFunctionWriteSerializer
+        return EmployeeFunctionSerializer
+
+    def get_permissions(self):
+        base = [p() for p in self.permission_classes]  # IsAuthenticated, HasInstitute
+        if self.action in {"create", "update", "partial_update", "destroy"}:
+            # gate writes to directors only (reuse your HasEmployeeFunctionCode)
+            self.required_function_codes = getattr(
+                settings, "EMPLOYEE_FUNCTION_WRITE_CODES", {"director"}
+            )
+            from apps.common.permissions import HasEmployeeFunctionCode
+
+            base.append(HasEmployeeFunctionCode())
+        return base
+
+    def perform_create(self, serializer):
+        """
+        Only directors can create, and only for their own institute.
+        Global (NULL institute) creation reserved for superusers (not exposed here).
+        """
+        iid = getattr(self.request.user, "institute_id", None)
+        if not iid:
+            raise PermissionDenied("No institute.")
+        # Enforce institute-scoped creation
+        serializer.save()  # serializer uses request.user.institute_id
+
+    def perform_update(self, serializer):
+        obj = self.get_object()
+        if obj.institute_id is None:
+            raise PermissionDenied("Default functions cannot be edited.")
+        iid = getattr(self.request.user, "institute_id", None)
+        if obj.institute_id != iid:
+            raise PermissionDenied("You can edit only your institute's functions.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.institute_id is None:
+            raise PermissionDenied("Default functions cannot be deleted.")
+        iid = getattr(self.request.user, "institute_id", None)
+        if instance.institute_id != iid:
+            raise PermissionDenied("You can delete only your institute's functions.")
+        instance.delete()
 
     def get_queryset(self):
-        qs = super().get_queryset()  # union: GLOBAL ∪ current institute
+        """
+        - Read remains union: GLOBAL ∪ current institute (already in base)
+        - Optional filters by employee/current preserved from your version.
+        """
+        qs = super().get_queryset()  # union provided by manager
         employee_id = self.request.query_params.get("employee")
         if not employee_id:
             return qs
-
         iid = getattr(self.request.user, "institute_id", None)
-        # guard: employee must belong to caller's institute
         if not Employee.all_objects.filter(pk=employee_id, institute_id=iid).exists():
             return self.model.objects.none()
-
         qs = qs.filter(assignments__employee_id=employee_id)
         if self.request.query_params.get("current") in {"1", "true", "True"}:
             qs = qs.filter(assignments__end_date__isnull=True)
-
         return qs.distinct().only("id", "name", "code")
 
 

@@ -98,6 +98,9 @@ class EmployeeFunction(OptionallyScopedModel):
     Global when institute is NULL; institute-specific otherwise.
     """
 
+    objects = models.Manager()
+    all_objects = models.Manager()  # unscoped/raw access
+
     name = models.CharField(max_length=120)
     code = models.CharField(max_length=32, null=True, blank=True)
 

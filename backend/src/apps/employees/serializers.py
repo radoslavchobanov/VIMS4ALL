@@ -17,6 +17,35 @@ class EmployeeFunctionSerializer(serializers.ModelSerializer):
         return "global" if obj.institute_id is None else "institute"
 
 
+class EmployeeFunctionWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmployeeFunction
+        fields = [
+            "id",
+            "name",
+        ]  # institute is inferred; code optional if you want to expose it
+        extra_kwargs = {"id": {"read_only": True}}
+
+    def create(self, validated):
+        req = self.context["request"]
+        iid = getattr(req.user, "institute_id", None)
+        if not iid:
+            raise serializers.ValidationError("User has no institute assigned.")
+
+        # Directors create institute-scoped rows only.
+        # If you want to allow 'code', add it to fields and validated.
+        return EmployeeFunction.objects.create(institute_id=iid, name=validated["name"])
+
+    def update(self, instance, validated):
+        # Editing GLOBAL rows is forbidden
+        if instance.institute_id is None:
+            raise serializers.ValidationError("Default functions cannot be edited.")
+        # Renaming within same institute is allowed
+        instance.name = validated.get("name", instance.name)
+        instance.save(update_fields=["name"])
+        return instance
+
+
 class EmployeeReadSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
 
