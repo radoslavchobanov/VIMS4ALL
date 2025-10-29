@@ -87,10 +87,6 @@ class MeView(APIView):
                     "active_term": active_term_payload,
                 }
 
-            print("HERERERRER")
-            print(active_term)
-            print(today)
-
         # ---- Employee by system_user (OneToOne)
         emp_payload = None
         emp = (

@@ -23,6 +23,7 @@ class EmployeeFunctionWriteSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "code",
         ]  # institute is inferred; code optional if you want to expose it
         extra_kwargs = {"id": {"read_only": True}}
 
@@ -31,18 +32,21 @@ class EmployeeFunctionWriteSerializer(serializers.ModelSerializer):
         iid = getattr(req.user, "institute_id", None)
         if not iid:
             raise serializers.ValidationError("User has no institute assigned.")
-
-        # Directors create institute-scoped rows only.
-        # If you want to allow 'code', add it to fields and validated.
-        return EmployeeFunction.objects.create(institute_id=iid, name=validated["name"])
+        name = validated.get("name")
+        code = name.lower()
+        return EmployeeFunction.objects.create(institute_id=iid, name=name, code=code)
 
     def update(self, instance, validated):
         # Editing GLOBAL rows is forbidden
         if instance.institute_id is None:
             raise serializers.ValidationError("Default functions cannot be edited.")
         # Renaming within same institute is allowed
-        instance.name = validated.get("name", instance.name)
-        instance.save(update_fields=["name"])
+
+        name = validated.get("name", instance.name)
+        code = name.lower()
+        instance.name = name
+        instance.code = code
+        instance.save(update_fields=["name", "code"])
         return instance
 
 
