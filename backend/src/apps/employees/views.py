@@ -131,8 +131,6 @@ class EmployeeViewSet(ScopedModelViewSet):
             Q(institute__isnull=True) | Q(institute_id=iid),
             assignments__employee_id=pk,
         )
-        if request.query_params.get("current") in {"1", "true", "True"}:
-            qs = qs.filter(assignments__end_date__isnull=True)
 
         qs = qs.distinct().only("id", "name", "code")
         ser = EmployeeFunctionSerializer(qs, many=True)
@@ -316,8 +314,6 @@ class EmployeeFunctionViewSet(OptionallyScopedModelViewSet):
         if not Employee.all_objects.filter(pk=employee_id, institute_id=iid).exists():
             return self.model.objects.none()
         qs = qs.filter(assignments__employee_id=employee_id)
-        if self.request.query_params.get("current") in {"1", "true", "True"}:
-            qs = qs.filter(assignments__end_date__isnull=True)
         return qs.distinct().only("id", "name", "code")
 
 
@@ -339,8 +335,6 @@ class EmployeeCareerViewSet(ScopedModelViewSet):
             qs = qs.filter(function_id=function_id)
 
         current = params.get("current")
-        if current in {"1", "true", "True"}:
-            qs = qs.filter(end_date__isnull=True)
 
         return qs.order_by("-start_date", "-id")
 

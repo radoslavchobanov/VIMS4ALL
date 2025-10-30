@@ -24,7 +24,6 @@ class EmployeeQuerySet(models.QuerySet):
         subq_filters = {
             "employee_id": OuterRef("pk"),
             "institute_id": OuterRef("institute_id"),
-            "end_date__isnull": True,
         }
         if has_code:
             subq_filters["function__code"] = "instructor"

@@ -20,7 +20,6 @@ def q_active_instructors(iid: int):
                 EmployeeCareer.all_objects.filter(
                     employee_id=OuterRef("pk"),
                     institute_id=iid,
-                    end_date__isnull=True,
                     **func_filter,
                 )
             )
