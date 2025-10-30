@@ -48,9 +48,10 @@ def provision_institute_admin_employee(user: User) -> Employee:
     # 3) Create if still missing
     if not emp:
         epin = generate_employee_pin(institute_id=user.institute_id)
+        print(epin)
         emp = Employee.all_objects.create(
             institute_id=user.institute_id,
-            epin=epin,
+            epin=epin.pin,
             first_name=first,
             last_name=last,
             email=user.email,
@@ -77,9 +78,7 @@ def provision_institute_admin_employee(user: User) -> Employee:
 
     # 5) Ensure single open career row and that it is 'Managing Director'
     open_row = (
-        EmployeeCareer.all_objects.filter(
-            institute_id=user.institute_id, employee=emp, end_date__isnull=True
-        )
+        EmployeeCareer.all_objects.filter(institute_id=user.institute_id, employee=emp)
         .select_related("function")
         .first()
     )
@@ -93,8 +92,6 @@ def provision_institute_admin_employee(user: User) -> Employee:
         )
     elif open_row.function_id != director_fn.id:
         # Close the existing open row and open a Director row
-        open_row.end_date = today
-        open_row.save(update_fields=["end_date"])
         EmployeeCareer.all_objects.create(
             institute_id=user.institute_id,
             employee=emp,

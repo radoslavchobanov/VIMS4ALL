@@ -800,7 +800,7 @@ function CreateUserDialog({
               <MenuItem value="false">No</MenuItem>
             </TextField>
 
-            <TextField
+            {/* <TextField
               select
               label="Active"
               value={form.is_active ? "true" : "false"}
@@ -810,9 +810,9 @@ function CreateUserDialog({
             >
               <MenuItem value="true">Active</MenuItem>
               <MenuItem value="false">Inactive</MenuItem>
-            </TextField>
+            </TextField> */}
 
-            <TextField
+            {/* <TextField
               select
               label="Staff"
               value={form.is_staff ? "true" : "false"}
@@ -821,7 +821,7 @@ function CreateUserDialog({
             >
               <MenuItem value="true">Yes</MenuItem>
               <MenuItem value="false">No</MenuItem>
-            </TextField>
+            </TextField> */}
           </Box>
 
           {form.make_institute_admin && (
