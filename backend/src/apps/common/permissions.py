@@ -89,6 +89,5 @@ class HasEmployeeFunctionCode(BasePermission):
         return EmployeeCareer.all_objects.filter(
             institute_id=iid,
             employee_id=emp.id,
-            end_date__isnull=True,
             function__code__in=required,
         ).exists()
