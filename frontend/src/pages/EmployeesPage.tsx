@@ -421,6 +421,7 @@ function EmployeesForm({
       onSubmit={onSubmit}
       onSuccess={mode === "create" ? onCreated : onUpdated}
       onError={onError}
+      maxWidth="lg"
       sidebarSlot={
         <PhotoBox
           mode={mode}
