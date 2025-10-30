@@ -80,7 +80,7 @@ function AppRoutes() {
           path="/employees"
           element={
             <Protected
-              roles={["institute_admin"]}
+              roles={["institute_admin", "employee"]}
               funcCodes={["director", "registrar"]}
             >
               <EmployeesPage />
@@ -102,7 +102,7 @@ function AppRoutes() {
           path="/terms"
           element={
             <Protected
-              roles={["institute_admin"]}
+              roles={["institute_admin", "employee"]}
               funcCodes={["director", "registrar"]}
             >
               <TermsPage />

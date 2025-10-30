@@ -93,6 +93,7 @@ def create_employee_account_send_email(*, employee: Employee) -> CreateAccountRe
         last_name=emp.last_name,
         is_active=True,
     )
+    assign_default_role(user)
     # Align institute FK
     if getattr(user, "institute_id", None) != emp.institute_id:
         user.institute_id = emp.institute_id

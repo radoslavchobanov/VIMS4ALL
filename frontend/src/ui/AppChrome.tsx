@@ -46,7 +46,7 @@ const MENU: MenuItem[] = [
   {
     label: "Employees",
     to: "/employees",
-    roles: ["institute_admin"],
+    roles: ["institute_admin", "employee"],
     funcCodes: ["director", "registrar"],
   },
   {
@@ -58,7 +58,7 @@ const MENU: MenuItem[] = [
   {
     label: "Terms",
     to: "/terms",
-    roles: ["institute_admin"],
+    roles: ["institute_admin", "employee"],
     funcCodes: ["director", "registrar"],
   },
 
