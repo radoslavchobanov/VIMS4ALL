@@ -41,7 +41,6 @@ class StudentStatusAdmin(admin.ModelAdmin):
     list_display = (
         "student",
         "status",
-        "term",
         "is_active",
         "effective_at",
         "institute",

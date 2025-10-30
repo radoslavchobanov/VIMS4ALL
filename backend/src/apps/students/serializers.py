@@ -1,9 +1,6 @@
 from rest_framework import serializers
 
 from apps.courses.models import CourseClass
-from apps.terms.models import AcademicTerm
-from apps.terms.serializers import AcademicTermReadSerializer
-from apps.terms.services import get_nearest_term
 
 from .models import Status, Student, StudentCustodian, StudentStatus
 from .services.photos import ensure_student_photo_or_default
@@ -18,18 +15,14 @@ def mgr(model):
     return getattr(model, "all_objects", model.objects)
 
 
-STATUS_TRANSITIONS = {
-    "enquire": {"accepted", "not_accepted"},
-    "accepted": {"no_show", "active"},
-    "no_show": set(),
-    "active": {"retake", "failed", "graduate", "drop_out", "expelled"},
-    "retake": {"active", "failed", "graduate", "drop_out", "expelled"},
-    "failed": {"retake", "drop_out"},
-    "graduate": set(),
-    "drop_out": set(),
-    "expelled": set(),
-    "not_accepted": set(),
-}
+PROGRESSION_CHOICES = [
+    (Status.ACTIVE, Status.ACTIVE.label),
+    (Status.RETAKE, Status.RETAKE.label),
+    (Status.FAILED, Status.FAILED.label),
+    (Status.GRADUATE, Status.GRADUATE.label),
+    (Status.DROP_OUT, Status.DROP_OUT.label),
+    (Status.EXPELLED, Status.EXPELLED.label),
+]
 
 
 class StudentReadSerializer(serializers.ModelSerializer):
@@ -116,15 +109,6 @@ class StudentWriteSerializer(serializers.ModelSerializer):
         # TODO default photo (institute logo) ; add "getattr(user.institute, "logo_key", None)" when having institute logo
         ensure_student_photo_or_default(student, None)
 
-        # initial status = ENQUIRE (+ nearest term)
-        term = get_nearest_term(iid)
-        StudentStatus.objects.create(
-            institute_id=iid,
-            student=student,
-            status=Status.ENQUIRE,
-            term=term,
-            is_active=True,
-        )
         return student
 
 
@@ -203,12 +187,11 @@ class StudentCustodianSerializer(serializers.ModelSerializer):
 
 class StudentStatusWriteSerializer(serializers.ModelSerializer):
     student = serializers.PrimaryKeyRelatedField(queryset=mgr(Student).none())
-    term = serializers.PrimaryKeyRelatedField(
-        queryset=mgr(AcademicTerm).none(), allow_null=True, required=False
-    )
     course_class = serializers.PrimaryKeyRelatedField(
-        queryset=mgr(CourseClass).none(), allow_null=True, required=False
+        queryset=mgr(CourseClass).none(), allow_null=False, required=True
     )
+
+    status = serializers.ChoiceField(choices=PROGRESSION_CHOICES)
 
     class Meta:
         model = StudentStatus
@@ -216,7 +199,6 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
             "id",
             "student",
             "status",
-            "term",
             "course_class",
             "is_active",
             "note",
@@ -227,45 +209,35 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         req = self.context.get("request")
-        if req and getattr(req.user, "institute_id", None):
-            iid = req.user.institute_id
+        iid = getattr(getattr(req, "user", None), "institute_id", None)
+        if iid:
             self.fields["student"].queryset = mgr(Student).filter(institute_id=iid)
-            self.fields["term"].queryset = mgr(AcademicTerm).filter(institute_id=iid)
             self.fields["course_class"].queryset = mgr(CourseClass).filter(
-                institute_id=iid
+                course__institute_id=iid
             )
 
     def validate(self, attrs):
         req = self.context["request"]
         iid = req.user.institute_id
-        student = attrs.get("student")
-        new_status = attrs.get("status")
-        term = attrs.get("term")
+        student = attrs["student"]
+        cc = attrs["course_class"]
+        new_status = attrs["status"]
 
+        # current (in this class)
         last = (
             mgr(StudentStatus)
-            .filter(institute_id=iid, student=student)
+            .filter(institute_id=iid, student=student, course_class=cc)
             .order_by("-is_active", "-effective_at", "-id")
             .first()
         )
-        current = last.status if last else "enquire"
-
-        allowed = STATUS_TRANSITIONS.get(current, set())
+        prev = last.status if last else None
+        allowed = StudentStatus.ALLOWED.get(prev, set())
         if new_status not in allowed:
             raise serializers.ValidationError(
                 {
-                    "status": f"Transition from '{current}' to '{new_status}' is not allowed."
+                    "status": f"Transition from '{prev or '∅'}' to '{new_status}' is not allowed for this class."
                 }
             )
-
-        # Require term for instructional statuses
-        if new_status in {"active", "retake"} and term is None:
-            raise serializers.ValidationError(
-                {"term": "Term is required for ACTIVE/RETAKE."}
-            )
-        if new_status not in {"active", "retake"}:
-            attrs["term"] = None
-
         return attrs
 
 
@@ -278,8 +250,6 @@ class CourseClassMinSerializer(serializers.ModelSerializer):
 
 
 class StudentStatusReadSerializer(serializers.ModelSerializer):
-    term = AcademicTermReadSerializer(read_only=True)
-    term_name = serializers.CharField(source="term.name", read_only=True)
     course_class = CourseClassMinSerializer(read_only=True)
     class_name = serializers.CharField(source="course_class.name", read_only=True)
 
@@ -292,8 +262,6 @@ class StudentStatusReadSerializer(serializers.ModelSerializer):
             "note",
             "effective_at",
             "is_active",
-            "term",
-            "term_name",
             "course_class",
             "class_name",
         )

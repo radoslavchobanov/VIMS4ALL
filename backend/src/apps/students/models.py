@@ -152,9 +152,18 @@ class Status(models.TextChoices):
     NOT_ACCEPTED = "not_accepted", "Not accepted"
 
 
-class StudentStatus(InstituteScopedModel):
+PROGRESSION_VALUES = [
+    Status.ACTIVE,
+    Status.RETAKE,
+    Status.FAILED,
+    Status.GRADUATE,
+    Status.DROP_OUT,
+    Status.EXPELLED,
+]
 
-    # sets useful for rules
+
+class StudentStatus(InstituteScopedModel):
+    # Keep small, explicit rule-sets
     TERMINAL = {
         Status.GRADUATE,
         Status.DROP_OUT,
@@ -162,13 +171,9 @@ class StudentStatus(InstituteScopedModel):
         Status.NOT_ACCEPTED,
         Status.NO_SHOW,
     }
-    TERM_REQUIRED = {Status.ACTIVE, Status.RETAKE}
 
-    # Allowed transitions (prev -> {next, ...})
     ALLOWED = {
-        None: {Status.ENQUIRE, Status.ACCEPTED, Status.NOT_ACCEPTED},  # first status
-        Status.ENQUIRE: {Status.ACCEPTED, Status.NOT_ACCEPTED, Status.NO_SHOW},
-        Status.ACCEPTED: {Status.ACTIVE, Status.NO_SHOW, Status.NOT_ACCEPTED},
+        None: {Status.ACTIVE},  # from nothing → ACTIVE (for a given course_class)
         Status.ACTIVE: {
             Status.RETAKE,
             Status.FAILED,
@@ -183,8 +188,8 @@ class StudentStatus(InstituteScopedModel):
             Status.DROP_OUT,
             Status.EXPELLED,
         },
-        Status.FAILED: {Status.RETAKE, Status.DROP_OUT},  # fail → retake or leave
-        # Terminal states have no outgoing transitions
+        Status.FAILED: {Status.RETAKE, Status.DROP_OUT},
+        # Terminal have no outgoing transitions
         Status.GRADUATE: set(),
         Status.DROP_OUT: set(),
         Status.EXPELLED: set(),
@@ -196,12 +201,15 @@ class StudentStatus(InstituteScopedModel):
         "students.Student", on_delete=models.CASCADE, related_name="statuses"
     )
     status = models.CharField(max_length=20, choices=Status.choices)
-    term = models.ForeignKey(
-        "terms.AcademicTerm", null=True, blank=True, on_delete=models.SET_NULL
-    )
+
     course_class = models.ForeignKey(
-        "courses.CourseClass", null=True, blank=True, on_delete=models.SET_NULL
+        "courses.CourseClass",
+        null=False,
+        blank=False,
+        default=None,
+        on_delete=models.PROTECT,
     )
+
     is_active = models.BooleanField(default=True)
     note = models.TextField(blank=True)
     effective_at = models.DateTimeField(default=timezone.now)
@@ -210,59 +218,50 @@ class StudentStatus(InstituteScopedModel):
         ordering = ["-effective_at", "-id"]
         indexes = [
             models.Index(
-                fields=["student", "-effective_at"], name="status_student_eff_idx"
+                fields=["student", "course_class", "-effective_at"],
+                name="status_student_class_eff_idx",
             ),
-            models.Index(fields=["term"], name="status_term_idx"),
             models.Index(fields=["course_class"], name="status_class_idx"),
         ]
-        # one *active* status row per student, per institute
         constraints = [
             models.UniqueConstraint(
-                fields=["institute", "student"],
+                fields=["institute", "student", "course_class"],
                 condition=Q(is_active=True),
-                name="uq_one_active_status_per_student",
+                name="uq_one_active_status_per_student_per_class",
             ),
-            # Term must be present for ACTIVE/RETAKE; otherwise optional
             models.CheckConstraint(
-                name="ck_term_required_for_active_or_retake",
-                check=(
-                    Q(status__in=[Status.ACTIVE, Status.RETAKE], term__isnull=False)
-                    | ~Q(status__in=[Status.ACTIVE, Status.RETAKE])
-                ),
+                name="ck_class_required_for_progress",
+                check=Q(course_class__isnull=False),
+            ),
+            models.CheckConstraint(
+                name="ck_status_is_progression",
+                check=Q(status__in=[s.value for s in PROGRESSION_VALUES]),
             ),
         ]
 
     def __str__(self):
-        return f"{self.student_id}:{self.status}"
+        return f"{self.student_id}:{self.course_class_id}:{self.status}"
 
     def clean(self):
-        """
-        Enforce allowed transitions and simple invariants.
-        NOTE: This uses the most recent *other* status as 'prev'.
-        """
+        """Validate transition and invariants (single source of truth)."""
         from django.core.exceptions import ValidationError
 
-        # previous status (most recent before this one)
+        # previous row in THIS course_class
         prev = (
-            StudentStatus.objects.filter(student=self.student)
+            StudentStatus.objects.filter(
+                student=self.student, course_class=self.course_class
+            )
             .exclude(pk=self.pk)
-            .order_by("-effective_at", "-id")
+            .order_by("-is_active", "-effective_at", "-id")
             .first()
         )
         prev_code = prev.status if prev else None
 
-        # Check transition is allowed
         allowed_next = self.ALLOWED.get(prev_code, set())
         if self.status not in allowed_next:
             raise ValidationError(
-                f"Invalid transition {prev_code or '∅'} → {self.status}."
+                f"Invalid transition {prev_code or '∅'} → {self.status} for this class."
             )
 
-        # Guard against leaving terminal states
         if prev and prev.status in self.TERMINAL and self.status != prev.status:
-            # This is covered by ALLOWED above, but keep a clear error
             raise ValidationError("Cannot transition out of a terminal state.")
-
-        # Term requirement is covered by the DB CheckConstraint; keep defensive validation:
-        if self.status in self.TERM_REQUIRED and self.term_id is None:
-            raise ValidationError("Term is required for ACTIVE/RETAKE statuses.")

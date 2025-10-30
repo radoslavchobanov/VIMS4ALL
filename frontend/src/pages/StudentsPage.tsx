@@ -1246,27 +1246,27 @@ function StudentStatusTab({
   const [rows, setRows] = useState<StudentStatusRead[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [terms, setTerms] = useState<AcademicTermRead[]>([]);
+  // removed terms
   const [classes, setClasses] = useState<CourseClassRead[]>([]);
   const [allowed, setAllowed] = useState<string[] | null>(null);
   const [allowedLoading, setAllowedLoading] = useState(false);
 
-  const fetchAllowedNext = async () => {
-    setAllowedLoading(true);
-    try {
-      const r = await api.get<string[]>(
-        `${STUDENTS_ENDPOINT}${studentId}/statuses/allowed-next/`,
-        { params: { t: Date.now() } } // cache-buster just in case
-      );
-      setAllowed(r.data ?? null);
-    } catch {
-      setAllowed(null);
-    } finally {
-      setAllowedLoading(false);
-    }
-  };
+  // add-status form (no term now)
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState<{
+    status: string;
+    course_class: number | null;
+    note: string;
+    effective_at: string; // yyyy-MM-ddTHH:mm
+  }>({
+    status: "",
+    course_class: null,
+    note: "",
+    effective_at: new Date().toISOString().slice(0, 16),
+  });
 
-  const load = async () => {
+  // ---- data loaders ----
+  const loadRows = async () => {
     setLoading(true);
     try {
       const r = await api.get(STUDENT_STATUS_ENDPOINT, {
@@ -1279,48 +1279,66 @@ function StudentStatusTab({
     }
   };
 
+  const loadClasses = async () => {
+    const r = await api.get(COURSE_CLASSES_COLLECTION_ENDPOINT, {
+      params: { page_size: 200 },
+    });
+    const data = Array.isArray(r.data) ? r.data : r.data.results ?? [];
+    setClasses(data);
+  };
+
+  const fetchAllowedNext = async (courseClassId: number) => {
+    setAllowedLoading(true);
+    try {
+      const r = await api.get<string[]>(
+        `${STUDENTS_ENDPOINT}${studentId}/statuses/allowed-next/`,
+        { params: { course_class: courseClassId, t: Date.now() } }
+      );
+      const list = r.data ?? [];
+      setAllowed(list);
+      // auto-select first allowed (usually "active")
+      if (list.length && !form.status) {
+        setForm((f) => ({ ...f, status: list[0] }));
+      }
+    } catch {
+      // fall back to hard-coded progression list only if endpoint fails entirely
+      setAllowed([
+        "active",
+        "retake",
+        "failed",
+        "graduate",
+        "drop_out",
+        "expelled",
+      ]);
+    } finally {
+      setAllowedLoading(false);
+    }
+  };
+
+  // initial load
   useEffect(() => {
     (async () => {
-      await load();
-      await fetchAllowedNext();
+      await Promise.all([loadRows(), loadClasses()]);
+      // don't fetch allowed yet; needs a course_class first
+      setAllowed(null);
+      setForm({
+        status: "",
+        course_class: null,
+        note: "",
+        effective_at: new Date().toISOString().slice(0, 16),
+      });
     })();
   }, [studentId]);
 
+  // when rows change, if a class is selected refresh allowed for that class
   useEffect(() => {
-    if (rows.length) fetchAllowedNext();
+    if (form.course_class) fetchAllowedNext(form.course_class);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows[0]?.id, rows[0]?.status]);
+  }, [rows.length]);
 
-  useEffect(() => {
-    // Load supporting lists; adjust endpoints if different
-    api.get(TERMS_ENDPOINT, { params: { page_size: 200 } }).then((r) => {
-      const data = Array.isArray(r.data) ? r.data : r.data.results ?? [];
-      setTerms(data);
-    });
-    api
-      .get(COURSE_CLASSES_COLLECTION_ENDPOINT, { params: { page_size: 200 } })
-      .then((r) => {
-        const data = Array.isArray(r.data) ? r.data : r.data.results ?? [];
-        setClasses(data);
-      });
-    // Allowed next statuses (optional; if not available, fallback to a static list)
-    api
-      .get(`${STUDENTS_ENDPOINT}${studentId}/statuses/allowed-next/`)
-      .then((r) => setAllowed(r.data as string[]))
-      .catch(() => setAllowed(null));
-  }, [studentId]);
+  // ---- grid columns (term removed) ----
   const cols: GridColDef<StudentStatusRead>[] = [
     { field: "status", headerName: "Status", flex: 1, minWidth: 140 },
-
-    {
-      field: "term_name",
-      headerName: "Term",
-      flex: 1,
-      minWidth: 120,
-      valueGetter: (_value, row) =>
-        row.term?.name ?? (row as any).term_name ?? "",
-    },
-
     {
       field: "class_name",
       headerName: "Course class",
@@ -1332,7 +1350,6 @@ function StudentStatusTab({
         (row as any).course_class ??
         "",
     },
-
     { field: "note", headerName: "Note", flex: 1, minWidth: 200 },
     {
       field: "effective_at",
@@ -1342,59 +1359,53 @@ function StudentStatusTab({
     },
   ];
 
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState<StudentStatusWrite>({
-    status: "" as any,
-    term: null,
-    course_class: null,
-    note: "",
-    effective_at: new Date().toISOString().slice(0, 16), // yyyy-MM-ddTHH:mm
-  });
+  // ---- actions ----
+  const onChangeClass = async (val: string) => {
+    const cc = val ? Number(val) : null;
+    setForm((f) => ({ ...f, course_class: cc, status: "" })); // reset status on class change
+    setAllowed(null);
+    if (cc) await fetchAllowedNext(cc);
+  };
 
-  const statusOptions = allowed ?? [
-    // fallback; keep in sync with backend if you don’t have the allowed-next endpoint
-    "enquire",
-    "accepted",
-    "no_show",
-    "active",
-    "retake",
-    "failed",
-    "graduate",
-    "drop_out",
-    "expelled",
-    "not_accepted",
-  ];
-
-  const requiresTerm = form.status === "active" || form.status === "retake";
+  const canSave = !!form.course_class && !!form.status && !allowedLoading;
 
   const saveStatus = async () => {
     try {
-      const payload: any = {
+      if (!form.course_class) {
+        onError("Select a course class first.");
+        return;
+      }
+      if (!form.status) {
+        onError("Select a status.");
+        return;
+      }
+
+      const payload = {
+        student: studentId,
         status: form.status,
+        course_class: form.course_class,
         note: form.note || "",
         effective_at: form.effective_at
           ? new Date(form.effective_at).toISOString()
           : undefined,
-        term: requiresTerm ? form.term : form.term ?? null, // backend CheckConstraint protects this
-        course_class: form.course_class ?? null,
       };
-      await api.post(STUDENT_STATUS_ENDPOINT, {
-        ...payload,
-        student: studentId,
-      });
+
+      await api.post(STUDENT_STATUS_ENDPOINT, payload);
+
       setAdding(false);
       setForm({
-        status: "" as any,
-        term: null,
+        status: "",
         course_class: null,
         note: "",
         effective_at: new Date().toISOString().slice(0, 16),
       });
 
-      await load();
-      await fetchAllowedNext();
+      await loadRows();
+      // allowed will be re-fetched by the rows effect if a class remains selected
     } catch (e: any) {
-      onError(e?.message ?? "Status change failed");
+      onError(
+        e?.response?.data?.detail ?? e?.message ?? "Status change failed"
+      );
     }
   };
 
@@ -1424,61 +1435,41 @@ function StudentStatusTab({
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" },
           }}
         >
-          <TextField
-            select
-            label="Status"
-            value={form.status ?? ""}
-            onChange={(e) =>
-              setForm({ ...form, status: e.target.value as any })
-            }
-            required
-          >
-            <MenuItem value="">{/* empty */}</MenuItem>
-            {statusOptions.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            select
-            label="Term"
-            value={form.term ?? ""}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                term: e.target.value ? Number(e.target.value) : null,
-              })
-            }
-            disabled={!requiresTerm}
-            helperText={
-              requiresTerm ? "Required for ACTIVE/RETAKE" : "Optional"
-            }
-          >
-            <MenuItem value="">{/* empty */}</MenuItem>
-            {terms.map((t) => (
-              <MenuItem key={t.id} value={t.id}>
-                {t.name}
-              </MenuItem>
-            ))}
-          </TextField>
-
+          {/* Course class is selected first */}
           <TextField
             select
             label="Course class"
             value={form.course_class ?? ""}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                course_class: e.target.value ? Number(e.target.value) : null,
-              })
-            }
+            onChange={(e) => onChangeClass(e.target.value)}
+            required
           >
             <MenuItem value="">{/* empty */}</MenuItem>
             {classes.map((c) => (
               <MenuItem key={c.id} value={c.id}>
                 {c.name ?? c.id}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            select
+            label="Status"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+            required
+            disabled={!form.course_class || allowedLoading}
+            helperText={
+              !form.course_class
+                ? "Select a class to load allowed statuses"
+                : allowedLoading
+                ? "Loading allowed statuses..."
+                : ""
+            }
+          >
+            <MenuItem value="">{/* empty */}</MenuItem>
+            {(allowed ?? []).map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
               </MenuItem>
             ))}
           </TextField>
@@ -1490,16 +1481,21 @@ function StudentStatusTab({
             onChange={(e) => setForm({ ...form, effective_at: e.target.value })}
             InputLabelProps={{ shrink: true }}
           />
+
           <TextField
             label="Note"
-            value={form.note ?? ""}
+            value={form.note}
             onChange={(e) => setForm({ ...form, note: e.target.value })}
             multiline
             minRows={2}
           />
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Button variant="contained" onClick={saveStatus}>
+            <Button
+              variant="contained"
+              onClick={saveStatus}
+              disabled={!canSave}
+            >
               Save status
             </Button>
             <Button onClick={() => setAdding(false)}>Cancel</Button>

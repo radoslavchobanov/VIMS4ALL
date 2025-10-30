@@ -17,7 +17,6 @@ from .serializers import (
     StudentStatusReadSerializer,
     StudentStatusWriteSerializer,
     StudentWriteSerializer,
-    STATUS_TRANSITIONS,
 )
 from .services.import_xlsx import import_students_xlsx, CANONICAL_COLUMNS
 from apps.common.media import public_media_url
@@ -118,16 +117,22 @@ class StudentViewSet(ScopedModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="statuses/allowed-next")
     def allowed_next_statuses(self, request, pk=None):
+        """GET /api/students/{id}/statuses/allowed-next?course_class={id}"""
+        from .models import StudentStatus  # local import to avoid cycles
+
         iid = self.get_institute_id()
-        qs = StudentStatus.all_objects.filter(institute_id=iid, student_id=pk).order_by(
-            "-effective_at", "-id"
-        )
+        ccid = request.query_params.get("course_class")
+        if not ccid:
+            return Response(
+                {"detail": "course_class query param is required."}, status=400
+            )
 
-        # Prefer the active row if it exists
-        current_row = qs.filter(is_active=True).first() or qs.first()
-        current = current_row.status if current_row else "enquire"
-
-        return Response(sorted(STATUS_TRANSITIONS.get(current, set())))
+        qs = StudentStatus.all_objects.filter(
+            institute_id=iid, student_id=pk, course_class_id=ccid
+        ).order_by("-is_active", "-effective_at", "-id")
+        current = qs.filter(is_active=True).first() or qs.first()
+        code = current.status if current else None
+        return Response(sorted(StudentStatus.ALLOWED.get(code, set())))
 
     @action(
         detail=False,
@@ -221,27 +226,32 @@ class StudentStatusViewSet(ScopedModelViewSet):
         return StudentStatusReadSerializer
 
     def get_queryset(self):
+        # Base queryset must be StudentStatus; no 'term' anymore.
         qs = (
             super()
             .get_queryset()
             .filter(institute_id=self.get_institute_id())
             .select_related(
-                "term",
+                "student",
                 "course_class",
                 "course_class__course",
-                "course_class__term",
             )
-            .order_by("-effective_at", "-id")
+            .order_by("-is_active", "-effective_at", "-id")
         )
         sid = self.request.query_params.get("student")
         if sid:
             qs = qs.filter(student_id=sid)
+        ccid = self.request.query_params.get("course_class")
+        if ccid:
+            qs = qs.filter(course_class_id=ccid)
         return qs
 
     def perform_create(self, serializer):
+        # Deactivate only within (student, course_class), not globally
         iid = self.get_institute_id()
         student = serializer.validated_data["student"]
-        StudentStatus.all_objects.filter(student=student, is_active=True).update(
-            is_active=False
-        )
+        cc = serializer.validated_data["course_class"]
+        StudentStatus.all_objects.filter(
+            institute_id=iid, student=student, course_class=cc, is_active=True
+        ).update(is_active=False)
         serializer.save(is_active=True, institute_id=iid)
