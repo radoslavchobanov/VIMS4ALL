@@ -23,7 +23,7 @@ class Student(InstituteScopedModel):
     date_of_birth = models.DateField()
 
     # identifiers/media
-    spin = models.CharField(max_length=32, unique=True)
+    spin = models.CharField(max_length=32)
     photo = models.ImageField(upload_to="students/", null=True, blank=True)
 
     # OPTIONAL fields -> null/blank allowed
@@ -63,7 +63,12 @@ class Student(InstituteScopedModel):
             models.UniqueConstraint(
                 fields=["institute", "first_name", "last_name", "date_of_birth"],
                 name="uq_student_person_like",
-            )
+            ),
+            # NEW: SPIN must be unique within an institute (not globally)
+            models.UniqueConstraint(
+                fields=["institute", "spin"],
+                name="uq_student_spin_per_institute",
+            ),
         ]
         indexes = [
             models.Index(

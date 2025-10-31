@@ -37,7 +37,7 @@ class Employee(InstituteScopedModel):
     )
 
     # Codes/IDs
-    epin = models.CharField(max_length=32, unique=True)
+    epin = models.CharField(max_length=32)
     national_id = models.CharField(max_length=64, null=True, blank=True)
     nssf_id = models.CharField(max_length=64, null=True, blank=True)
     paye_id = models.CharField(max_length=64, null=True, blank=True)
@@ -81,7 +81,12 @@ class Employee(InstituteScopedModel):
             models.UniqueConstraint(
                 fields=["institute", "first_name", "last_name", "date_of_birth"],
                 name="uq_employee_person_like",
-            )
+            ),
+            # NEW: EPIN must be unique within an institute (not globally)
+            models.UniqueConstraint(
+                fields=["institute", "epin"],
+                name="uq_employee_epin_per_institute",
+            ),
         ]
         indexes = [
             models.Index(
