@@ -8,7 +8,6 @@ class Student(InstituteScopedModel):
     class Gender(models.TextChoices):
         MALE = "male", "Male"
         FEMALE = "female", "Female"
-        OTHER = "other", "Other / Unspecified"
 
     class MaritalStatus(models.TextChoices):
         SINGLE = "single", "Not married"
@@ -95,7 +94,6 @@ class StudentCustodian(InstituteScopedModel):
     class Gender(models.TextChoices):
         MALE = "male", "Male"
         FEMALE = "female", "Female"
-        OTHER = "other", "Other/Unspecified"
 
     class Relationship(models.TextChoices):
         PARENT = "parent", "Parent"

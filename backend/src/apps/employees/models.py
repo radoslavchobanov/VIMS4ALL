@@ -14,7 +14,6 @@ class Employee(InstituteScopedModel):
     class Gender(models.TextChoices):
         MALE = "male", "Male"
         FEMALE = "female", "Female"
-        OTHER = "other", "Other/Unspecified"
 
     class FamilyState(models.TextChoices):
         SINGLE = "single", "Not married"
@@ -207,7 +206,6 @@ class EmployeeDependent(InstituteScopedModel):
     class Gender(models.TextChoices):
         MALE = "male", "Male"
         FEMALE = "female", "Female"
-        OTHER = "other", "Other/Unspecified"
 
     employee = models.ForeignKey(
         Employee, on_delete=models.CASCADE, related_name="dependents"

@@ -940,7 +940,6 @@ function EmployeeDependentEditorDialog({
             <MenuItem value="">{/* empty */}</MenuItem>
             <MenuItem value="male">Male</MenuItem>
             <MenuItem value="female">Female</MenuItem>
-            <MenuItem value="other">Other/Unspecified</MenuItem>
           </TextField>
           <TextField
             label="Phone 1"
