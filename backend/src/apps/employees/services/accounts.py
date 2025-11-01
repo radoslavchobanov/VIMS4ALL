@@ -176,17 +176,17 @@ def create_employee_account_invite(*, employee: Employee) -> CreateAccountResult
     base = getattr(settings, "PORTAL_URL", "https://vims4all.eu")
     set_password_url = f"{base}/auth/set-password?uid={uidb64}&token={token}"
 
-    subject = "Your VIMS account – set your password"
+    subject = "Your VIMS4ALL account – set your password"
     text = (
         f"Hello {emp.first_name},\n\n"
-        f"Your VIMS account has been created.\n\n"
+        f"Your VIMS4ALL account has been created.\n\n"
         f"Username (email): {username}\n"
         f"Set your password here (valid once):\n{set_password_url}\n\n"
         f"If you did not request this, ignore this email."
     )
     html = (
         f"<p>Hello {emp.first_name},</p>"
-        f"<p>Your VIMS account has been created.</p>"
+        f"<p>Your VIMS4ALL account has been created.</p>"
         f"<p><b>Username:</b> {username}</p>"
         f"<p><a href='{set_password_url}'>Click here to set your password</a></p>"
         f"<p>If you did not request this, ignore this email.</p>"
