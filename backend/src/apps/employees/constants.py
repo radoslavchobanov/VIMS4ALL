@@ -5,7 +5,4 @@ DEFAULT_GLOBAL_EMPLOYEE_FUNCTIONS = [
     ("Accountant", "accountant"),
     ("Instructor", "instructor"),
     ("Admin", "admin"),
-    ("Security guard", "security_guard"),
-    ("Cook", "cook"),
-    ("Cleaner", "cleaner"),
 ]
