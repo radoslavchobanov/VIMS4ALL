@@ -303,18 +303,28 @@ class EmployeeFunctionViewSet(OptionallyScopedModelViewSet):
 
     def get_queryset(self):
         """
-        - Read remains union: GLOBAL ∪ current institute (already in base)
-        - Optional filters by employee/current preserved from your version.
+        Return GLOBAL (NULL institute) ∪ current user's institute.
+        Optionally filter by ?employee=<id> while keeping the same union.
         """
-        qs = super().get_queryset()  # union provided by manager
-        employee_id = self.request.query_params.get("employee")
-        if not employee_id:
-            return qs
         iid = getattr(self.request.user, "institute_id", None)
-        if not Employee.all_objects.filter(pk=employee_id, institute_id=iid).exists():
+        if not iid:
             return self.model.objects.none()
-        qs = qs.filter(assignments__employee_id=employee_id)
-        return qs.distinct().only("id", "name", "code")
+
+        qs = self.model.all_objects.filter(
+            Q(institute__isnull=True) | Q(institute_id=iid)
+        )
+
+        employee_id = self.request.query_params.get("employee")
+        if employee_id:
+            # Ensure the employee belongs to the same institute
+            if not Employee.all_objects.filter(
+                pk=employee_id, institute_id=iid
+            ).exists():
+                return self.model.objects.none()
+            qs = qs.filter(assignments__employee_id=employee_id)
+
+        # include institute_id in only() so your `scope` field can resolve correctly
+        return qs.distinct().only("id", "name", "code", "institute_id")
 
 
 class EmployeeCareerViewSet(ScopedModelViewSet):
