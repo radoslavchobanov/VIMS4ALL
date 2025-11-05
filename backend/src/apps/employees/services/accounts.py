@@ -54,10 +54,16 @@ def create_employee_account_custom(
         is_active=True,
     )
     assign_default_role(user)
+
+    # enforce first-login password change
+    user.must_change_password = True
+
     # Attach institute (your User has FK institute)
+    update_fields = ["must_change_password"]
     if getattr(user, "institute_id", None) != iid:
         user.institute_id = iid
-        user.save(update_fields=["institute_id"])
+        update_fields.append("institute_id")
+    user.save(update_fields=update_fields)
 
     employee.system_user = user
     if not employee.entry_date:
@@ -94,10 +100,16 @@ def create_employee_account_send_email(*, employee: Employee) -> CreateAccountRe
         is_active=True,
     )
     assign_default_role(user)
+
+    # enforce first-login password change
+    user.must_change_password = True
+    update_fields = ["must_change_password"]
+
     # Align institute FK
     if getattr(user, "institute_id", None) != emp.institute_id:
         user.institute_id = emp.institute_id
-        user.save(update_fields=["institute_id"])
+        update_fields.append("institute_id")
+    user.save(update_fields=update_fields)
 
     # Link back to employee
     emp.system_user = user
@@ -162,7 +174,20 @@ def create_employee_account_invite(*, employee: Employee) -> CreateAccountResult
         ),
     )
     user.set_unusable_password()
-    user.save()
+    # enforce first-login password change
+    user.must_change_password = True
+    user.save(
+        update_fields=[
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "is_active",
+            "institute",
+            "password",
+            "must_change_password",
+        ]
+    )
 
     emp.system_user = user
     if not emp.entry_date:
