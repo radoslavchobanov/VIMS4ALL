@@ -221,33 +221,33 @@ class StudentStatusViewSet(ScopedModelViewSet):
     model = StudentStatus
 
     def get_serializer_class(self):
-        if self.action in ("create", "update", "partial_update"):
-            return StudentStatusWriteSerializer
-        return StudentStatusReadSerializer
+        return (
+            StudentStatusWriteSerializer
+            if self.action in ("create", "update", "partial_update")
+            else StudentStatusReadSerializer
+        )
 
     def get_queryset(self):
-        # Base queryset must be StudentStatus; no 'term' anymore.
         qs = (
             super()
             .get_queryset()
             .filter(institute_id=self.get_institute_id())
-            .select_related(
-                "student",
-                "course_class",
-                "course_class__course",
-            )
+            .select_related("student", "course_class", "course_class__course")
             .order_by("-is_active", "-effective_at", "-id")
         )
-        sid = self.request.query_params.get("student")
-        if sid:
+        p = self.request.query_params
+        if sid := p.get("student"):
             qs = qs.filter(student_id=sid)
-        ccid = self.request.query_params.get("course_class")
-        if ccid:
+        if ccid := p.get("course_class"):
             qs = qs.filter(course_class_id=ccid)
+        if st := p.get("status"):
+            qs = qs.filter(status=st)
+        if "is_active" in p:
+            qs = qs.filter(is_active=p.get("is_active") in {"1", "true", "True"})
         return qs
 
     def perform_create(self, serializer):
-        # Deactivate only within (student, course_class), not globally
+        # Same-class deactivation remains, service also deactivates defensively
         iid = self.get_institute_id()
         student = serializer.validated_data["student"]
         cc = serializer.validated_data["course_class"]

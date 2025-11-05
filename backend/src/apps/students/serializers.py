@@ -191,7 +191,8 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
         queryset=mgr(CourseClass).none(), allow_null=False, required=True
     )
 
-    status = serializers.ChoiceField(choices=PROGRESSION_CHOICES)
+    # Use full Status enum values here:
+    status = serializers.ChoiceField(choices=Status.choices)
 
     class Meta:
         model = StudentStatus
@@ -239,6 +240,14 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
                 }
             )
         return attrs
+
+    def validate_status(self, value: str):
+        v = (value or "").strip().lower()
+        # normalize to enum value
+        for code, _label in Status.choices:
+            if v == code:
+                return code
+        raise serializers.ValidationError("Invalid status code.")
 
 
 class CourseClassMinSerializer(serializers.ModelSerializer):

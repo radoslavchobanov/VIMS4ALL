@@ -145,6 +145,7 @@ class StudentCustodian(InstituteScopedModel):
 class Status(models.TextChoices):
     ENQUIRE = "enquire", "Enquire"
     ACCEPTED = "accepted", "Accepted"
+    NOT_ACCEPTED = "not_accepted", "Not accepted"
     NO_SHOW = "no_show", "No show"
     ACTIVE = "active", "Active"
     RETAKE = "retake", "Retake"
@@ -152,52 +153,40 @@ class Status(models.TextChoices):
     GRADUATE = "graduate", "Graduate"
     DROP_OUT = "drop_out", "Drop out"
     EXPELLED = "expelled", "Expelled"
-    NOT_ACCEPTED = "not_accepted", "Not accepted"
 
 
-PROGRESSION_VALUES = [
-    Status.ACTIVE,
-    Status.RETAKE,
-    Status.FAILED,
-    Status.GRADUATE,
-    Status.DROP_OUT,
-    Status.EXPELLED,
-]
+ALL_STATUS_VALUES = [s.value for s in Status]
 
 
 class StudentStatus(InstituteScopedModel):
-    # Keep small, explicit rule-sets
     TERMINAL = {
-        Status.GRADUATE,
-        Status.DROP_OUT,
-        Status.EXPELLED,
         Status.NOT_ACCEPTED,
         Status.NO_SHOW,
+        Status.DROP_OUT,
+        Status.EXPELLED,
+        Status.GRADUATE,
+        Status.FAILED,
     }
 
     ALLOWED = {
-        None: {Status.ACTIVE},  # from nothing → ACTIVE (for a given course_class)
+        None: {Status.ENQUIRE},  # first ever row for this class is "enquire"
+        Status.ENQUIRE: {Status.ACCEPTED, Status.NOT_ACCEPTED},
+        Status.ACCEPTED: {Status.ACTIVE, Status.NO_SHOW},
         Status.ACTIVE: {
+            Status.DROP_OUT,
+            Status.FAILED,
+            Status.EXPELLED,
             Status.RETAKE,
-            Status.FAILED,
             Status.GRADUATE,
-            Status.DROP_OUT,
-            Status.EXPELLED,
         },
-        Status.RETAKE: {
-            Status.ACTIVE,
-            Status.FAILED,
-            Status.GRADUATE,
-            Status.DROP_OUT,
-            Status.EXPELLED,
-        },
-        Status.FAILED: {Status.RETAKE, Status.DROP_OUT},
-        # Terminal have no outgoing transitions
-        Status.GRADUATE: set(),
-        Status.DROP_OUT: set(),
-        Status.EXPELLED: set(),
+        Status.RETAKE: {Status.FAILED, Status.GRADUATE},
+        # Terminal have no outgoing transitions *within the same class*
         Status.NOT_ACCEPTED: set(),
         Status.NO_SHOW: set(),
+        Status.DROP_OUT: set(),
+        Status.EXPELLED: set(),
+        Status.GRADUATE: set(),
+        Status.FAILED: set(),
     }
 
     student = models.ForeignKey(
@@ -236,9 +225,10 @@ class StudentStatus(InstituteScopedModel):
                 name="ck_class_required_for_progress",
                 check=Q(course_class__isnull=False),
             ),
+            # NOTE: broaden to all declared Status values
             models.CheckConstraint(
-                name="ck_status_is_progression",
-                check=Q(status__in=[s.value for s in PROGRESSION_VALUES]),
+                name="ck_status_is_valid",
+                check=Q(status__in=ALL_STATUS_VALUES),
             ),
         ]
 
@@ -246,10 +236,13 @@ class StudentStatus(InstituteScopedModel):
         return f"{self.student_id}:{self.course_class_id}:{self.status}"
 
     def clean(self):
-        """Validate transition and invariants (single source of truth)."""
+        """
+        Validate per-class transition and protect "second life":
+        - In this class: follow ALLOWED.
+        - Terminal→Active is NOT permitted in-place; do that by creating an ACTIVE in another class.
+        """
         from django.core.exceptions import ValidationError
 
-        # previous row in THIS course_class
         prev = (
             StudentStatus.objects.filter(
                 student=self.student, course_class=self.course_class
@@ -259,12 +252,15 @@ class StudentStatus(InstituteScopedModel):
             .first()
         )
         prev_code = prev.status if prev else None
-
         allowed_next = self.ALLOWED.get(prev_code, set())
+
         if self.status not in allowed_next:
             raise ValidationError(
-                f"Invalid transition {prev_code or '∅'} → {self.status} for this class."
+                f"Invalid transition {prev_code or '∅'} → {self.status} within this class."
             )
 
-        if prev and prev.status in self.TERMINAL and self.status != prev.status:
-            raise ValidationError("Cannot transition out of a terminal state.")
+        # guard: do not allow terminal -> active within the same class
+        if prev_code in self.TERMINAL and self.status == Status.ACTIVE:
+            raise ValidationError(
+                "Re-activation after a terminal state must be done in a different class (second life)."
+            )
