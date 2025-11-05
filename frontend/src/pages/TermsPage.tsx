@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -12,7 +12,7 @@ import {
   MenuItem,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
-
+import type { AxiosError } from "axios";
 import { api } from "../lib/apiClient";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { TERMS_ENDPOINT } from "../lib/endpoints";
@@ -167,14 +167,64 @@ function TermForm({
   // NEW: local state for server-generated name
   const [suggestedName, setSuggestedName] = useState<string>("");
 
+  // NEW: top-of-form server error banner
+  const [serverErrors, setServerErrors] = useState<string[]>([]);
+
+  // Utility: flatten DRF ValidationError shapes into lines
+  function parseDrfErrors(err: unknown): string[] {
+    const ax = err as AxiosError<any>;
+    const data = ax?.response?.data;
+
+    if (typeof data === "string") return [data];
+    if (Array.isArray(data)) return data.map(String);
+
+    if (data && typeof data === "object") {
+      const out: string[] = [];
+
+      // DRF sometimes uses "detail" for top-level errors
+      if (data.detail) out.push(String(data.detail));
+
+      for (const [k, v] of Object.entries(data)) {
+        if (k === "detail") continue;
+
+        // treat "__all__" and "non_field_errors" as global messages (no prefix)
+        const isGlobal = k === "__all__" || k === "non_field_errors";
+
+        const pushVal = (msg: any) =>
+          out.push(isGlobal ? String(msg) : `${k}: ${String(msg)}`);
+
+        if (Array.isArray(v)) {
+          v.forEach((msg: any) => pushVal(msg));
+        } else if (typeof v === "string") {
+          pushVal(v);
+        } else if (v && typeof v === "object") {
+          for (const [nk, nv] of Object.entries(v as Record<string, any>)) {
+            if (Array.isArray(nv))
+              (nv as any[]).forEach((m) =>
+                out.push(`${k}.${nk}: ${String(m)}`)
+              );
+            else out.push(`${k}.${nk}: ${String(nv)}`);
+          }
+        }
+      }
+
+      return out.length ? out : ["Validation failed."];
+    }
+
+    return ["Unexpected error."];
+  }
+
+  // Reset state on open/target change
   useEffect(() => {
-    if (open) setTab(0);
-    // reset suggestion whenever the dialog opens for a new create
+    if (open) {
+      setTab(0);
+      setServerErrors([]);
+    }
     if (open && !initial) setSuggestedName("");
   }, [open, initial?.id]);
 
   const empty = (): AcademicTermWrite => ({
-    name: suggestedName || "", // seed with suggestedName (may be "")
+    name: suggestedName || "",
     start_date: "",
     end_date: "",
   });
@@ -195,7 +245,7 @@ function TermForm({
             year: number;
             ordinal: number;
           }>(`${TERMS_ENDPOINT}next-name/`);
-          setSuggestedName(r.data.name); // <-- store only; form will be re-seeded on remount via key+emptyFactory
+          setSuggestedName(r.data.name);
         } catch {
           // ignore; backend still generates on POST
         }
@@ -204,20 +254,32 @@ function TermForm({
     run();
   }, [open, initial, suggestedName]);
 
+  // IMPORTANT: we catch here, populate banner, then rethrow so EntityFormDialog
+  // can still run its error branch (spinner/disable reset etc.)
   const onSubmit = async (payload: AcademicTermWrite) => {
+    setServerErrors([]); // clear previous
     const { start_date, end_date } = payload;
-    if (mode === "create")
-      await api.post(TERMS_ENDPOINT, { start_date, end_date });
-    else
-      await api.patch(`${TERMS_ENDPOINT}${initial!.id}/`, {
-        start_date,
-        end_date,
-      });
+    try {
+      if (mode === "create") {
+        await api.post(TERMS_ENDPOINT, { start_date, end_date });
+      } else {
+        await api.patch(`${TERMS_ENDPOINT}${initial!.id}/`, {
+          start_date,
+          end_date,
+        });
+      }
+    } catch (e) {
+      const lines = parseDrfErrors(e);
+      setServerErrors(lines);
+      // Also notify parent toast with compact summary
+      onError(lines.join(" "));
+      throw e; // let EntityFormDialog know it failed
+    }
   };
 
   return (
     <EntityFormDialog<AcademicTermWrite, AcademicTerm>
-      key={`term-form-${mode}-${initial?.id ?? "new"}-${suggestedName}`} // <-- forces form re-init when name arrives
+      key={`term-form-${mode}-${initial?.id ?? "new"}-${suggestedName}`}
       title={mode === "create" ? "Create Term" : "Edit Term"}
       open={open}
       mode={mode}
@@ -229,7 +291,34 @@ function TermForm({
       onSuccess={mode === "create" ? onCreated : onUpdated}
       onError={onError}
       renderFields={(form, setForm) => (
-        <>
+        <Fragment>
+          {/* Top-of-modal, centered error box */}
+          {serverErrors.length > 0 && (
+            <Box
+              sx={{
+                mb: 2,
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              <Alert
+                severity="error"
+                variant="outlined"
+                sx={{
+                  width: "100%",
+                  maxWidth: 640,
+                  bgcolor: (t) => t.palette.error.light + "20", // light red background
+                }}
+              >
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {serverErrors.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              </Alert>
+            </Box>
+          )}
+
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 1 }}>
             <Tab label="General" />
           </Tabs>
@@ -268,7 +357,10 @@ function TermForm({
               label="Start date"
               type="date"
               value={form.start_date}
-              onChange={(e) => setForm({ start_date: e.target.value })}
+              onChange={(e) => {
+                setServerErrors([]); // clear banner on edit
+                setForm({ start_date: e.target.value });
+              }}
               InputLabelProps={{ shrink: true }}
               required
             />
@@ -276,12 +368,15 @@ function TermForm({
               label="End date"
               type="date"
               value={form.end_date}
-              onChange={(e) => setForm({ end_date: e.target.value })}
+              onChange={(e) => {
+                setServerErrors([]); // clear banner on edit
+                setForm({ end_date: e.target.value });
+              }}
               InputLabelProps={{ shrink: true }}
               required
             />
           </Box>
-        </>
+        </Fragment>
       )}
     />
   );

@@ -43,21 +43,23 @@ def compute_next_term_name(
 def create_term_with_auto_name(
     *, institute_id: int, start_date, end_date, year: int | None = None
 ) -> AcademicTerm:
-    """
-    Concurrency-safe creation using a PG advisory lock per (institute,year).
-    - Name format: T{year}_{ordinal}
-    - Year default: current calendar year.
-    """
     yr = year or date.today().year
     lock_key = _advisory_lock_key(institute_id, yr)
     with connection.cursor() as cur:
         cur.execute("SELECT pg_advisory_xact_lock(%s);", [lock_key])
 
-    # Recompute under lock and create.
+    # Recompute under lock and validate before persisting
     name, _ = compute_next_term_name(institute_id=institute_id, year=yr)
-    term = AcademicTerm.objects.create(
-        institute_id=institute_id, name=name, start_date=start_date, end_date=end_date
+
+    term = AcademicTerm(
+        institute_id=institute_id,
+        name=name,
+        start_date=start_date,
+        end_date=end_date,
     )
+    # <-- triggers your clean() which checks overlaps and date order
+    term.full_clean()
+    term.save()  # persist only after successful validation
     return term
 
 
