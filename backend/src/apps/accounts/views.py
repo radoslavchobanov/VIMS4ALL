@@ -1,8 +1,13 @@
 from rest_framework import viewsets, mixins, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from apps.common.permissions import IsSuperuser
-from .serializers import AccountAdminCreateSerializer, AccountAdminListSerializer
+from .serializers import (
+    AccountAdminCreateSerializer,
+    AccountAdminListSerializer,
+    SetOwnPasswordSerializer,
+)
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -38,3 +43,25 @@ class AccountAdminViewSet(
         user.set_password(pwd)
         user.save(update_fields=["password"])
         return Response({"detail": "password updated"})
+
+
+class SetOwnPasswordView(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="set-password",
+        url_name="set-own-password",
+    )
+    def set_password(self, request):
+        s = SetOwnPasswordSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        user = request.user
+        user.set_password(s.validated_data["new_password"])
+        user.must_change_password = False
+        user.save(update_fields=["password", "must_change_password"])
+        return Response(
+            {"detail": "Password updated.", "must_change_password": False},
+            status=status.HTTP_200_OK,
+        )

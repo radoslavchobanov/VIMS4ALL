@@ -67,22 +67,24 @@ class AccountAdminCreateSerializer(serializers.ModelSerializer):
     def create(self, validated):
         make_admin = validated.pop("make_institute_admin", False)
 
-        # Pop employee-related fields before user creation
-        dob: date | None = validated.pop("employee_date_of_birth", None)
-        phone = validated.pop("employee_phone_number", "")
-        nationality = validated.pop("employee_nationality", "")
+        # pop employee fields...
+        validated.pop("employee_date_of_birth", None)
+        validated.pop("employee_phone_number", "")
+        validated.pop("employee_nationality", "")
 
+        temp_password_provided = bool(validated.get("password"))
         user = User.objects.create_user(**validated)
+
+        if temp_password_provided:
+            user.must_change_password = True
+            user.save(update_fields=["must_change_password"])
 
         if make_admin:
             grp, _ = Group.objects.get_or_create(name="institute_admin")
             user.groups.add(grp)
-
-            # Optional: staff for Django admin access
             if not user.is_staff:
                 user.is_staff = True
                 user.save(update_fields=["is_staff"])
-
             provision_institute_admin_employee(user)
 
         return user
@@ -109,3 +111,15 @@ class AccountAdminListSerializer(serializers.ModelSerializer):
 
     def get_is_institute_admin(self, obj):
         return obj.groups.filter(name="institute_admin").exists()
+
+
+class SetOwnPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(min_length=6, write_only=True)
+    confirm_password = serializers.CharField(min_length=6, write_only=True)
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError(
+                {"confirm_password": "Passwords do not match."}
+            )
+        return attrs

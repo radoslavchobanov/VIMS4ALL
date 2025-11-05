@@ -125,6 +125,7 @@ class MeView(APIView):
             "id": str(u.pk),
             "username": u.get_username(),
             "email": getattr(u, "email", "") or "",
+            "must_change_password": getattr(u, "must_change_password", False),
             "roles": _roles_for(u),
             # convenience IDs for FE gating
             "institute_id": inst_payload["id"] if inst_payload else None,

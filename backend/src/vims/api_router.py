@@ -22,7 +22,7 @@ from apps.finance.views import (
     LedgerEntryViewSet,
 )
 from apps.institutes.views import InstituteAdminViewSet, InstituteViewSet
-from apps.accounts.views import AccountAdminViewSet
+from apps.accounts.views import AccountAdminViewSet, SetOwnPasswordView
 from apps.terms.views import AcademicTermViewSet
 
 
@@ -32,6 +32,9 @@ router = DefaultRouter()
 # ADMIN ENDPOINTS
 router.register(r"admin/institutes", InstituteAdminViewSet, basename="admin-institutes")
 router.register(r"admin/accounts", AccountAdminViewSet, basename="admin-accounts")
+
+# ACCOUNT ENDPOINTS
+router.register(r"auth/me", SetOwnPasswordView, basename="auth-me")
 
 # INSTITUTE ENDPOINTS
 router.register(r"institutes", InstituteViewSet, basename="institutes")
