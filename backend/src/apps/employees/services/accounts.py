@@ -11,11 +11,13 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
-from django.core.mail import EmailMultiAlternatives
 
 from apps.employees.models import Employee
 from apps.common.mailer import mailer
-from apps.employees.models import Employee
+from apps.common.email_templates import (
+    account_created_with_password,
+    account_created_with_invite_link,
+)
 from apps.accounts.services import assign_default_role
 
 User = get_user_model()
@@ -117,32 +119,21 @@ def create_employee_account_send_email(*, employee: Employee) -> CreateAccountRe
         emp.entry_date = timezone.now().date()
     emp.save(update_fields=["system_user", "entry_date"])
 
-    subject = "Your VIMS account"
-    text = (
-        f"Hello {emp.first_name or ''},\n\n"
-        f"Your VIMS account has been created.\n\n"
-        f"Username: {username}\n"
-        f"Temporary password: {password}\n\n"
-        f"Please sign in and change your password immediately."
-    )
-    html = (
-        f"<p>Hello {emp.first_name or ''},</p>"
-        f"<p>Your VIMS account has been created.</p>"
-        f"<p><b>Username:</b> {username}<br>"
-        f"<b>Temporary password:</b> {password}</p>"
-        f"<p>Please sign in and change your password immediately.</p>"
+    # Generate email from template
+    email_template = account_created_with_password(
+        first_name=emp.first_name or "",
+        username=username,
+        password=password,
+        institute_name=emp.institute.name if emp.institute else "VIMS4ALL",
     )
 
     def _send():
-        msg = EmailMultiAlternatives(
-            subject=subject,
-            body=text,
-            from_email=settings.DEFAULT_FROM_EMAIL,  # e.g. "VIMS <service@vims4all.eu>"
+        mailer.send(
+            subject=email_template.subject,
             to=[username],
-            reply_to=["service@vims4all.eu"],
+            text=email_template.text,
+            html=email_template.html,
         )
-        msg.attach_alternative(html, "text/html")
-        msg.send(fail_silently=False)
 
     # Only send if DB commit succeeds
     transaction.on_commit(_send)
@@ -201,25 +192,22 @@ def create_employee_account_invite(*, employee: Employee) -> CreateAccountResult
     base = getattr(settings, "PORTAL_URL", "https://vims4all.eu")
     set_password_url = f"{base}/auth/set-password?uid={uidb64}&token={token}"
 
-    subject = "Your VIMS4ALL account – set your password"
-    text = (
-        f"Hello {emp.first_name},\n\n"
-        f"Your VIMS4ALL account has been created.\n\n"
-        f"Username (email): {username}\n"
-        f"Set your password here (valid once):\n{set_password_url}\n\n"
-        f"If you did not request this, ignore this email."
-    )
-    html = (
-        f"<p>Hello {emp.first_name},</p>"
-        f"<p>Your VIMS4ALL account has been created.</p>"
-        f"<p><b>Username:</b> {username}</p>"
-        f"<p><a href='{set_password_url}'>Click here to set your password</a></p>"
-        f"<p>If you did not request this, ignore this email.</p>"
+    # Generate email from template
+    email_template = account_created_with_invite_link(
+        first_name=emp.first_name,
+        username=username,
+        set_password_url=set_password_url,
+        institute_name=emp.institute.name if emp.institute else "VIMS4ALL",
     )
 
     # Ensure mail is sent only after DB commit
     transaction.on_commit(
-        lambda: mailer.send(subject=subject, to=[username], text=text, html=html)
+        lambda: mailer.send(
+            subject=email_template.subject,
+            to=[username],
+            text=email_template.text,
+            html=email_template.html,
+        )
     )
 
     return CreateAccountResult(
