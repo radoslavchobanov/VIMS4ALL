@@ -581,9 +581,15 @@ function CourseClassEditorDialog({
   }, [open]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      key={`edit-${initial.id}`}
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+    >
       <DialogTitle>Edit {initial.name}</DialogTitle>
-      <DialogContent sx={{ pt: 2 }}>
+      <DialogContent sx={{ pt: 1.5, pb: 2 }}>
         <Box
           sx={{
             display: "grid",
@@ -593,42 +599,50 @@ function CourseClassEditorDialog({
         >
           <TextField
             label="Fee"
-            value={(form.fee_amount ?? "") as string}
+            value={form.fee_amount ?? ""}
             onChange={(e) =>
               setForm((f) => ({ ...f, fee_amount: e.target.value }))
             }
+            fullWidth
+            margin="dense"
           />
+
           <TextField
             select
             label="Certificate type"
-            value={(form.certificate_type ?? "") as string}
+            value={form.certificate_type ?? ""}
             onChange={(e) =>
               setForm((f) => ({ ...f, certificate_type: e.target.value }))
             }
+            fullWidth
+            margin="dense"
           >
-            <MenuItem value="">{/* empty = clear */}</MenuItem>
+            <MenuItem value="">–</MenuItem>
             {certOptions.map((opt) => (
               <MenuItem key={opt.value} value={opt.value}>
                 {opt.display_name}
               </MenuItem>
             ))}
           </TextField>
+
           <TextField
             label="Credits"
             type="number"
-            value={(form.credits ?? "") as number | string}
+            value={form.credits ?? ""}
             onChange={(e) =>
               setForm((f) => ({
                 ...f,
                 credits: e.target.value === "" ? null : Number(e.target.value),
               }))
             }
-            inputProps={{ min: 0 }}
+            fullWidth
+            margin="dense"
           />
+
           <TextField
             label="Hours per term"
             type="number"
-            value={(form.hours_per_term ?? "") as number | string}
+            value={form.hours_per_term ?? ""}
             onChange={(e) =>
               setForm((f) => ({
                 ...f,
@@ -636,17 +650,10 @@ function CourseClassEditorDialog({
                   e.target.value === "" ? null : Number(e.target.value),
               }))
             }
-            inputProps={{ min: 0 }}
+            fullWidth
+            margin="dense"
           />
-          {/* <TextField
-            label="Start date"
-            type="date"
-            value={form.start_date ?? ""}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, start_date: e.target.value || null }))
-            }
-            InputLabelProps={{ shrink: true }}
-          /> */}
+
           <TextField
             label="End date"
             type="date"
@@ -654,6 +661,8 @@ function CourseClassEditorDialog({
             onChange={(e) =>
               setForm((f) => ({ ...f, end_date: e.target.value || null }))
             }
+            fullWidth
+            margin="dense"
             InputLabelProps={{ shrink: true }}
           />
         </Box>

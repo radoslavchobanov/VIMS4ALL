@@ -1133,18 +1133,24 @@ function CustodianEditorDialog({
             value={form.first_name}
             onChange={(e) => setForm({ ...form, first_name: e.target.value })}
             required
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Last name"
             value={form.last_name}
             onChange={(e) => setForm({ ...form, last_name: e.target.value })}
             required
+            fullWidth
+            margin="dense"
           />
           <TextField
             select
             label="Relation"
             value={form.relation ?? ""}
             onChange={(e) => setForm({ ...form, relation: e.target.value })}
+            fullWidth
+            margin="dense"
           >
             <MenuItem value="parent">Parent</MenuItem>
             <MenuItem value="guardian">Guardian</MenuItem>
@@ -1155,6 +1161,8 @@ function CustodianEditorDialog({
             label="Gender"
             value={form.gender ?? ""}
             onChange={(e) => setForm({ ...form, gender: e.target.value })}
+            fullWidth
+            margin="dense"
           >
             <MenuItem value="">{/* empty */}</MenuItem>
             <MenuItem value="male">Male</MenuItem>
@@ -1167,6 +1175,8 @@ function CustodianEditorDialog({
             onChange={(e) =>
               setForm({ ...form, phone_number_1: e.target.value })
             }
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Phone 2"
@@ -1174,6 +1184,8 @@ function CustodianEditorDialog({
             onChange={(e) =>
               setForm({ ...form, phone_number_2: e.target.value })
             }
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Place of work"
@@ -1181,31 +1193,43 @@ function CustodianEditorDialog({
             onChange={(e) =>
               setForm({ ...form, place_of_work: e.target.value })
             }
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Nationality"
             value={form.nationality ?? ""}
             onChange={(e) => setForm({ ...form, nationality: e.target.value })}
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Country"
             value={form.country ?? ""}
             onChange={(e) => setForm({ ...form, country: e.target.value })}
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Sub country"
             value={form.sub_country ?? ""}
             onChange={(e) => setForm({ ...form, sub_country: e.target.value })}
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Parish"
             value={form.parish ?? ""}
             onChange={(e) => setForm({ ...form, parish: e.target.value })}
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Cell"
             value={form.cell ?? ""}
             onChange={(e) => setForm({ ...form, cell: e.target.value })}
+            fullWidth
+            margin="dense"
           />
         </Box>
         <TextField
@@ -1215,6 +1239,8 @@ function CustodianEditorDialog({
           minRows={3}
           value={form.comments ?? ""}
           onChange={(e) => setForm({ ...form, comments: e.target.value })}
+          fullWidth
+          margin="dense"
         />
       </DialogContent>
       <DialogActions>

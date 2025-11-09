@@ -143,3 +143,5 @@ pnpm-debug.log*
 
 frontend/src/api/__generated__/
 frontend/openapi.json
+
+CLAUDE.md

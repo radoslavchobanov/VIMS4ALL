@@ -909,7 +909,7 @@ function EmployeeDependentEditorDialog({
       <DialogTitle>
         {mode === "create" ? "Add Dependent" : "Edit Dependent"}
       </DialogTitle>
-      <DialogContent sx={{ pt: 2 }}>
+      <DialogContent sx={{ pt: 1.5, pb: 2 }}>
         <Box
           sx={{
             display: "grid",
@@ -922,12 +922,16 @@ function EmployeeDependentEditorDialog({
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Relation"
             value={form.relation}
             onChange={(e) => setForm({ ...form, relation: e.target.value })}
             required
+            fullWidth
+            margin="dense"
           />
           <TextField
             select
@@ -936,6 +940,8 @@ function EmployeeDependentEditorDialog({
             onChange={(e) =>
               setForm({ ...form, gender: e.target.value || null })
             }
+            fullWidth
+            margin="dense"
           >
             <MenuItem value="">{/* empty */}</MenuItem>
             <MenuItem value="male">Male</MenuItem>
@@ -947,6 +953,8 @@ function EmployeeDependentEditorDialog({
             onChange={(e) =>
               setForm({ ...form, phone_number_1: e.target.value })
             }
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Phone 2"
@@ -954,11 +962,15 @@ function EmployeeDependentEditorDialog({
             onChange={(e) =>
               setForm({ ...form, phone_number_2: e.target.value })
             }
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Address"
             value={form.address ?? ""}
             onChange={(e) => setForm({ ...form, address: e.target.value })}
+            fullWidth
+            margin="dense"
           />
         </Box>
         <TextField
@@ -968,6 +980,8 @@ function EmployeeDependentEditorDialog({
           minRows={3}
           value={form.comments ?? ""}
           onChange={(e) => setForm({ ...form, comments: e.target.value })}
+          fullWidth
+          margin="dense"
         />
       </DialogContent>
       <DialogActions>
@@ -979,6 +993,7 @@ function EmployeeDependentEditorDialog({
     </Dialog>
   );
 }
+
 function EmployeeCareerTab({
   employeeId,
   onError,

@@ -106,7 +106,7 @@ export function EntityFormDialog<TWrite extends Record<string, any>, TInitial>({
         </Box>
       </DialogTitle>
       <Box component="form" onSubmit={submit}>
-        <DialogContent sx={{ display: "grid", gap: 2 }}>
+        <DialogContent dividers sx={{ display: "grid", gap: 2 }}>
           {renderFields(form, update)}
         </DialogContent>
         <DialogActions>
