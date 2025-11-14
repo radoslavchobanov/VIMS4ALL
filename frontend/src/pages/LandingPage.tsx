@@ -51,24 +51,14 @@ export default function LandingPage() {
       <Box
         sx={{
           minHeight: "100vh",
-          background: "linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)",
+          background:
+            "linear-gradient(135deg,rgb(183, 211, 239) 0%, #E2E8F0 100%)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
           py: 4,
           position: "relative",
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: "300px",
-            background: "linear-gradient(135deg, #0D47A1 0%, #42A5F5 100%)",
-            opacity: 0.1,
-            zIndex: 0,
-          },
         }}
       >
         <Container maxWidth="sm" sx={{ position: "relative", zIndex: 1 }}>
@@ -95,10 +85,21 @@ export default function LandingPage() {
 
           {/* Title */}
           <Typography
+            variant="h3"
+            align="center"
+            sx={{
+              mb: 0,
+              fontWeight: 700,
+              color: "#1565C0",
+            }}
+          >
+            Vocational
+          </Typography>
+          <Typography
             variant="h4"
             align="center"
             sx={{
-              mb: 1,
+              mb: 2,
               fontWeight: 700,
               color: "#1565C0",
             }}
@@ -123,8 +124,8 @@ export default function LandingPage() {
             sx={{
               p: 4,
               borderRadius: 3,
-              backgroundColor: "white",
-              boxShadow: "0px 8px 32px rgba(21, 101, 192, 0.12)",
+              backgroundColor: "rgba(241, 241, 241, 0.57)",
+              boxShadow: "0px 8px 32px rgba(52, 124, 207, 0.35)",
             }}
           >
             {error && (

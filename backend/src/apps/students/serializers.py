@@ -27,6 +27,9 @@ PROGRESSION_CHOICES = [
 
 class StudentReadSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
+    current_status = serializers.SerializerMethodField()
+    current_course_class = serializers.SerializerMethodField()
+    current_course_class_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -56,13 +59,96 @@ class StudentReadSerializer(serializers.ModelSerializer):
             "bank_name",
             "bank_account_number",
             "created_at",
+            "current_status",
+            "current_course_class",
+            "current_course_class_name",
         ]
-        read_only_fields = ["spin", "created_at", "photo_url"]
+        read_only_fields = ["spin", "created_at", "photo_url", "current_status", "current_course_class", "current_course_class_name"]
 
     def get_photo_url(self, obj):
         f = getattr(obj, "photo", None)
         key = getattr(f, "name", None) if f and f.name else None
         return public_media_url(key, obj.institute_id)
+
+    def get_current_status(self, obj):
+        """
+        Get the current status of the student.
+        Priority: latest active status, otherwise latest status overall.
+        """
+        # First try to get the latest active status
+        active_status = (
+            mgr(StudentStatus)
+            .filter(student=obj, is_active=True)
+            .order_by("-effective_at", "-id")
+            .first()
+        )
+
+        if active_status:
+            return active_status.status
+
+        # If no active status, get the latest status overall
+        latest_status = (
+            mgr(StudentStatus)
+            .filter(student=obj)
+            .order_by("-effective_at", "-id")
+            .first()
+        )
+
+        return latest_status.status if latest_status else None
+
+    def get_current_course_class(self, obj):
+        """
+        Get the ID of the current course class.
+        Priority: latest active status, otherwise latest status overall.
+        """
+        # First try to get the latest active status
+        active_status = (
+            mgr(StudentStatus)
+            .filter(student=obj, is_active=True)
+            .order_by("-effective_at", "-id")
+            .first()
+        )
+
+        if active_status:
+            return active_status.course_class_id
+
+        # If no active status, get the latest status overall
+        latest_status = (
+            mgr(StudentStatus)
+            .filter(student=obj)
+            .order_by("-effective_at", "-id")
+            .first()
+        )
+
+        return latest_status.course_class_id if latest_status else None
+
+    def get_current_course_class_name(self, obj):
+        """
+        Get the name of the current course class.
+        Priority: latest active status, otherwise latest status overall.
+        """
+        # First try to get the latest active status
+        active_status = (
+            mgr(StudentStatus)
+            .filter(student=obj, is_active=True)
+            .select_related("course_class")
+            .order_by("-effective_at", "-id")
+            .first()
+        )
+
+        if active_status:
+            return active_status.course_class.name if active_status.course_class else None
+
+        # If no active status, get the latest status overall
+        latest_status = (
+            mgr(StudentStatus)
+            .filter(student=obj)
+            .select_related("course_class")
+            .order_by("-effective_at", "-id")
+            .first()
+        )
+
+        return latest_status.course_class.name if latest_status and latest_status.course_class else None
 
 
 class StudentWriteSerializer(serializers.ModelSerializer):
@@ -223,6 +309,7 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
         student = attrs["student"]
         cc = attrs["course_class"]
         new_status = attrs["status"]
+        new_effective_at = attrs.get("effective_at")
 
         # current (in this class)
         last = (
@@ -239,6 +326,15 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
                     "status": f"Transition from '{prev or '∅'}' to '{new_status}' is not allowed for this class."
                 }
             )
+
+        # Validate effective_at: must be after the previous status's effective_at for the same course class
+        if last and new_effective_at and new_effective_at <= last.effective_at:
+            raise serializers.ValidationError(
+                {
+                    "effective_at": f"Effect date must be after the previous status's effect date ({last.effective_at.strftime('%Y-%m-%d %H:%M:%S')})."
+                }
+            )
+
         return attrs
 
     def validate_status(self, value: str):

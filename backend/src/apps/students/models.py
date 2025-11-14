@@ -240,6 +240,7 @@ class StudentStatus(InstituteScopedModel):
         Validate per-class transition and protect "second life":
         - In this class: follow ALLOWED.
         - Terminal→Active is NOT permitted in-place; do that by creating an ACTIVE in another class.
+        - Effect date must be after the previous status's effect date for the same course class.
         """
         from django.core.exceptions import ValidationError
 
@@ -263,4 +264,10 @@ class StudentStatus(InstituteScopedModel):
         if prev_code in self.TERMINAL and self.status == Status.ACTIVE:
             raise ValidationError(
                 "Re-activation after a terminal state must be done in a different class (second life)."
+            )
+
+        # guard: effect date must be after the previous status's effect date for the same course class
+        if prev and self.effective_at <= prev.effective_at:
+            raise ValidationError(
+                f"Effect date must be after the previous status's effect date ({prev.effective_at.strftime('%Y-%m-%d %H:%M:%S')})."
             )

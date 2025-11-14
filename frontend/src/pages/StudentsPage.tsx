@@ -54,7 +54,13 @@ type StudentStatusWrite = components["schemas"]["StudentStatus"] | any;
 type AcademicTermRead = components["schemas"]["AcademicTerm"] | any;
 type CourseClassRead = components["schemas"]["CourseClassRead"] | any;
 
-type Row = { spin: string; given_name: string; family_name: string };
+type Row = {
+  spin: string;
+  given_name: string;
+  family_name: string;
+  current_status?: string | null;
+  current_course_class_name?: string | null;
+};
 type Page<T> = {
   results: T[];
   count?: number;
@@ -67,6 +73,19 @@ const columns: GridColDef<Row>[] = [
   { field: "spin", headerName: "SPIN", width: 160 },
   { field: "given_name", headerName: "Given name", flex: 1, minWidth: 140 },
   { field: "family_name", headerName: "Family name", flex: 1, minWidth: 140 },
+  {
+    field: "current_course_class_name",
+    headerName: "Course Class",
+    flex: 1,
+    minWidth: 180,
+    valueGetter: (_value, row: any) => row.current_course_class_name || "—"
+  },
+  {
+    field: "current_status",
+    headerName: "Status",
+    width: 140,
+    valueGetter: (_value, row: any) => row.current_status || "—"
+  },
 ];
 
 /* =============================================================================
@@ -98,10 +117,12 @@ export default function StudentsPage() {
       const listData = Array.isArray(r.data) ? r.data : r.data.results ?? [];
       setList(listData);
       setRows(
-        listData.map((s) => ({
+        listData.map((s: any) => ({
           spin: s.spin,
           given_name: s.first_name,
           family_name: s.last_name,
+          current_status: s.current_status,
+          current_course_class_name: s.current_course_class_name,
         }))
       );
     } finally {
@@ -1318,6 +1339,7 @@ function StudentStatusTab({
 
   // add-status form (no term now)
   const [adding, setAdding] = useState(false);
+  const [statusErrors, setStatusErrors] = useState<string[]>([]);
   const [form, setForm] = useState<{
     status: string;
     course_class: number | null;
@@ -1474,14 +1496,59 @@ function StudentStatusTab({
 
   const canSave = !!form.course_class && !!form.status && !allowedLoading;
 
+  // Helper to parse DRF errors
+  const parseDrfErrors = (err: any): string[] => {
+    const data = err?.response?.data;
+
+    if (typeof data === "string") return [data];
+    if (Array.isArray(data)) return data.map(String);
+
+    if (data && typeof data === "object") {
+      const errors: string[] = [];
+
+      if (data.detail) {
+        errors.push(String(data.detail));
+      }
+
+      for (const [field, value] of Object.entries(data)) {
+        if (field === "detail") continue;
+
+        const isGlobal = field === "__all__" || field === "non_field_errors";
+
+        if (Array.isArray(value)) {
+          value.forEach((msg: any) => {
+            errors.push(isGlobal ? String(msg) : `${field}: ${String(msg)}`);
+          });
+        } else if (typeof value === "string") {
+          errors.push(isGlobal ? value : `${field}: ${value}`);
+        } else if (value && typeof value === "object") {
+          for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, any>)) {
+            if (Array.isArray(nestedValue)) {
+              nestedValue.forEach((msg: any) => {
+                errors.push(`${field}.${nestedKey}: ${String(msg)}`);
+              });
+            } else {
+              errors.push(`${field}.${nestedKey}: ${String(nestedValue)}`);
+            }
+          }
+        }
+      }
+
+      return errors.length ? errors : ["Validation failed."];
+    }
+
+    return [err?.message ?? "Status change failed"];
+  };
+
   const saveStatus = async () => {
+    setStatusErrors([]); // Clear previous errors
     try {
       if (!form.course_class) {
-        onError("Select a course class first.");
+        setStatusErrors(["Select a course class first."]);
         return;
       }
       if (!form.status) {
-        onError("Select a status.");
+        setStatusErrors(["Select a status."]);
         return;
       }
 
@@ -1498,6 +1565,7 @@ function StudentStatusTab({
       await api.post(STUDENT_STATUS_ENDPOINT, payload);
 
       setAdding(false);
+      setStatusErrors([]);
       setForm({
         status: "",
         course_class: null,
@@ -1508,9 +1576,9 @@ function StudentStatusTab({
       await loadRows();
       // allowed will be re-fetched by the rows effect if a class remains selected
     } catch (e: any) {
-      onError(
-        e?.response?.data?.detail ?? e?.message ?? "Status change failed"
-      );
+      const errors = parseDrfErrors(e);
+      setStatusErrors(errors);
+      onError(errors.join("; "));
     }
   };
 
@@ -1535,13 +1603,47 @@ function StudentStatusTab({
             borderColor: "divider",
             borderRadius: 1,
             mb: 2,
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" },
           }}
         >
-          {/* Course class is selected first */}
-          <TextField
+          {/* Error Alert Box */}
+          {statusErrors.length > 0 && (
+            <Alert
+              severity="error"
+              variant="filled"
+              onClose={() => setStatusErrors([])}
+              sx={{
+                mb: 2,
+                "& .MuiAlert-message": {
+                  width: "100%",
+                },
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                Validation Error{statusErrors.length > 1 ? "s" : ""}
+              </Typography>
+              {statusErrors.length === 1 ? (
+                <Typography variant="body2">{statusErrors[0]}</Typography>
+              ) : (
+                <Box component="ul" sx={{ margin: 0, paddingLeft: 2 }}>
+                  {statusErrors.map((msg, idx) => (
+                    <li key={idx}>
+                      <Typography variant="body2">{msg}</Typography>
+                    </li>
+                  ))}
+                </Box>
+              )}
+            </Alert>
+          )}
+
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" },
+            }}
+          >
+            {/* Course class is selected first */}
+            <TextField
             select
             label="Course class"
             value={form.course_class ?? ""}
@@ -1609,7 +1711,11 @@ function StudentStatusTab({
             >
               Save status
             </Button>
-            <Button onClick={() => setAdding(false)}>Cancel</Button>
+            <Button onClick={() => {
+              setAdding(false);
+              setStatusErrors([]);
+            }}>Cancel</Button>
+          </Box>
           </Box>
         </Box>
       )}

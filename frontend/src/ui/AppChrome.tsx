@@ -141,7 +141,8 @@ export default function AppChrome({ children }: PropsWithChildren) {
       <AppBar
         position="static"
         sx={{
-          background: "linear-gradient(135deg, #0D47A1 0%, #42A5F5 100%)",
+          background:
+            "linear-gradient(135deg,rgba(13, 72, 161, 0.89) 0%, #42A5F5 100%)",
           boxShadow: "0px 2px 12px rgba(0, 0, 0, 0.15)",
         }}
       >
