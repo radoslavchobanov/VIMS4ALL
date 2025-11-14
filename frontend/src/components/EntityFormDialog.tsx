@@ -13,6 +13,7 @@ type Updater<T> = (patch: Partial<T> | ((prev: T) => T)) => void;
 
 export type EntityFormDialogProps<TWrite, TInitial> = {
   title: string;
+  subtitle?: string[]; // Array of subtitle lines to display below title
   open: boolean;
   mode: "create" | "edit";
   initial?: TInitial;
@@ -31,6 +32,7 @@ export type EntityFormDialogProps<TWrite, TInitial> = {
 
 export function EntityFormDialog<TWrite extends Record<string, any>, TInitial>({
   title,
+  subtitle,
   open,
   mode,
   initial,
@@ -99,9 +101,22 @@ export function EntityFormDialog<TWrite extends Record<string, any>, TInitial>({
     >
       <DialogTitle sx={{ pb: 0 }}>
         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-          <Typography variant="h6" sx={{ flex: 1 }}>
-            {title}
-          </Typography>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h6">{title}</Typography>
+            {subtitle && subtitle.length > 0 && (
+              <Box sx={{ mt: 0.5 }}>
+                {subtitle.map((line, idx) => (
+                  <Typography
+                    key={idx}
+                    variant="body2"
+                    sx={{ color: "text.secondary", fontSize: "0.875rem" }}
+                  >
+                    {line}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          </Box>
           {sidebarSlot}
         </Box>
       </DialogTitle>

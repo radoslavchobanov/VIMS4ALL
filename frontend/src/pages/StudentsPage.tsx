@@ -320,9 +320,19 @@ function StudentsForm({
     }
   };
 
+  const dialogTitle = mode === "create" ? "Create Student" : "Edit Student";
+  const dialogSubtitle =
+    mode === "edit" && initial
+      ? [
+          `SPIN: ${initial.spin ?? ""}`,
+          `Name: ${initial.first_name ?? ""} ${initial.last_name ?? ""}`.trim(),
+        ]
+      : undefined;
+
   return (
     <EntityFormDialog<StudentWrite, StudentRead>
-      title={mode === "create" ? "Create Student" : "Edit Student"}
+      title={dialogTitle}
+      subtitle={dialogSubtitle}
       open={open}
       mode={mode}
       initial={initial}
@@ -960,8 +970,8 @@ function StudentCustodiansTab({
 
   const cols: GridColDef<CustodianRead>[] = useMemo(
     () => [
-      { field: "first_name", headerName: "First name", flex: 1, minWidth: 120 },
-      { field: "last_name", headerName: "Last name", flex: 1, minWidth: 120 },
+      { field: "first_name", headerName: "Given name", flex: 1, minWidth: 120 },
+      { field: "last_name", headerName: "Family name", flex: 1, minWidth: 120 },
       { field: "relation", headerName: "Relation", flex: 1, minWidth: 120 },
       { field: "phone_number_1", headerName: "Phone", flex: 1, minWidth: 140 },
       {
@@ -1129,7 +1139,7 @@ function CustodianEditorDialog({
           }}
         >
           <TextField
-            label="First name"
+            label="Given name"
             value={form.first_name}
             onChange={(e) => setForm({ ...form, first_name: e.target.value })}
             required
@@ -1137,7 +1147,7 @@ function CustodianEditorDialog({
             margin="dense"
           />
           <TextField
-            label="Last name"
+            label="Family name"
             value={form.last_name}
             onChange={(e) => setForm({ ...form, last_name: e.target.value })}
             required
@@ -1276,6 +1286,19 @@ function StudentStatusTab({
   const [allowed, setAllowed] = useState<string[] | null>(null);
   const [allowedLoading, setAllowedLoading] = useState(false);
 
+  // Terminal/final statuses that allow changing course class again
+  const TERMINAL_STATUSES = [
+    "not_accepted",
+    "no_show",
+    "drop_out",
+    "expelled",
+    "graduate",
+    "failed",
+  ];
+
+  // Statuses that lock the course class (active and beyond, but not terminal)
+  const LOCKING_STATUSES = ["active", "retake"];
+
   // add-status form (no term now)
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<{
@@ -1290,6 +1313,11 @@ function StudentStatusTab({
     effective_at: new Date().toISOString().slice(0, 16),
   });
 
+  // Track locked course class (if student has active/retake status in a class)
+  const [lockedCourseClass, setLockedCourseClass] = useState<number | null>(
+    null
+  );
+
   // ---- data loaders ----
   const loadRows = async () => {
     setLoading(true);
@@ -1299,6 +1327,33 @@ function StudentStatusTab({
       });
       const data = Array.isArray(r.data) ? r.data : r.data.results ?? [];
       setRows(data);
+
+      // Determine if there's a locked course class
+      // Course is locked if student has "active" or "retake" status
+      // Course can be changed before "active" (enquire, accepted) and after terminal states
+      const activeStatusesByClass = new Map<number, any>();
+      data.forEach((status: any) => {
+        if (status.is_active) {
+          const classId =
+            typeof status.course_class === "object"
+              ? status.course_class.id
+              : status.course_class;
+          if (!activeStatusesByClass.has(classId)) {
+            activeStatusesByClass.set(classId, status);
+          }
+        }
+      });
+
+      // Check if any active status is a locking status (active or retake)
+      let locked: number | null = null;
+      for (const [classId, status] of activeStatusesByClass.entries()) {
+        if (LOCKING_STATUSES.includes(status.status)) {
+          locked = classId;
+          break;
+        }
+      }
+
+      setLockedCourseClass(locked);
     } finally {
       setLoading(false);
     }
@@ -1354,6 +1409,14 @@ function StudentStatusTab({
       });
     })();
   }, [studentId]);
+
+  // When adding a new status and there's a locked course class, autofill it
+  useEffect(() => {
+    if (adding && lockedCourseClass && !form.course_class) {
+      setForm((f) => ({ ...f, course_class: lockedCourseClass }));
+      fetchAllowedNext(lockedCourseClass);
+    }
+  }, [adding, lockedCourseClass]);
 
   // when rows change, if a class is selected refresh allowed for that class
   useEffect(() => {
@@ -1467,6 +1530,12 @@ function StudentStatusTab({
             value={form.course_class ?? ""}
             onChange={(e) => onChangeClass(e.target.value)}
             required
+            disabled={!!lockedCourseClass}
+            helperText={
+              lockedCourseClass
+                ? "Course class locked after becoming active. Change only after final status."
+                : ""
+            }
           >
             <MenuItem value="">{/* empty */}</MenuItem>
             {classes.map((c) => (
