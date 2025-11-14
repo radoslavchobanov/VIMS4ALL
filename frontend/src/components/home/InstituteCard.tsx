@@ -83,7 +83,7 @@ export const InstituteCard = memo(function InstituteCard({
             loading="lazy"
             sx={{
               display: "block",
-              width: "70%",
+              width: "40%",
               maxWidth: imageMaxWidth, // keeps it centered and “way big”
               objectFit: "cover",
               borderRadius: 2,
