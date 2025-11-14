@@ -9,6 +9,7 @@ import TermsPage from "./pages/TermsPage";
 import FinancePage from "./pages/FinancePage";
 import HomePage from "./pages/HomePage";
 import InstitutePage from "./pages/InstitutePage";
+import LandingPage from "./pages/LandingPage";
 import { CircularProgress, Box } from "@mui/material";
 
 function AppLoading() {
@@ -38,6 +39,15 @@ function AppRoutes() {
   };
 
   const Forbidden = () => <div>Forbidden</div>;
+
+  // Show landing page if not authenticated
+  if (!authReady) {
+    return <AppLoading />;
+  }
+
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
 
   return (
     <AppChrome>
