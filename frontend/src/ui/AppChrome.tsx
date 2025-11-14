@@ -138,13 +138,24 @@ export default function AppChrome({ children }: PropsWithChildren) {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AppBar position="static" color="default" elevation={1}>
-        <Toolbar sx={{ gap: 2 }}>
+        <Toolbar sx={{ gap: 1 }}>
           <IconButton edge="start" onClick={() => setDrawer(true)}>
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            VIMS
-          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              flexGrow: 1,
+            }}
+          >
+            <img
+              src="/VIMS4ALL_logo.jpeg"
+              alt="VIMS4ALL"
+              style={{ height: "80px", objectFit: "contain" }}
+            />
+          </Box>
 
           {!isAuthenticated ? (
             <Box
