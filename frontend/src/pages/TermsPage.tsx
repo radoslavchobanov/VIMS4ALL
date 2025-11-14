@@ -104,7 +104,12 @@ export default function TermsPage() {
           loading={loading}
           onRowClick={(p) => openEdit(p.row)}
           pageSizeOptions={[25, 50, 100]}
-          sx={{ "& .MuiDataGrid-row": { cursor: "pointer" } }}
+          sx={{
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "rgba(21, 101, 192, 0.08)",
+              cursor: "pointer",
+            },
+          }}
         />
       </div>
 

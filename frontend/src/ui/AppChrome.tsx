@@ -2,7 +2,6 @@ import { useState, useEffect, PropsWithChildren } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ThemeProvider,
-  createTheme,
   CssBaseline,
   AppBar,
   Toolbar,
@@ -20,12 +19,14 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Avatar,
+  Chip,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import PersonIcon from "@mui/icons-material/Person";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../lib/apiClient";
-
-const theme = createTheme({ palette: { mode: "light" } });
+import theme from "../theme/theme";
 
 type MenuItem = {
   label: string;
@@ -137,9 +138,19 @@ export default function AppChrome({ children }: PropsWithChildren) {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppBar position="static" color="default" elevation={1}>
-        <Toolbar sx={{ gap: 1 }}>
-          <IconButton edge="start" onClick={() => setDrawer(true)}>
+      <AppBar
+        position="static"
+        sx={{
+          background: "linear-gradient(135deg, #0D47A1 0%, #42A5F5 100%)",
+          boxShadow: "0px 2px 12px rgba(0, 0, 0, 0.15)",
+        }}
+      >
+        <Toolbar sx={{ gap: 2, py: 0.5 }}>
+          <IconButton
+            edge="start"
+            onClick={() => setDrawer(true)}
+            sx={{ color: "white" }}
+          >
             <MenuIcon />
           </IconButton>
           <Box
@@ -148,12 +159,14 @@ export default function AppChrome({ children }: PropsWithChildren) {
               alignItems: "center",
               gap: 1.5,
               flexGrow: 1,
+              cursor: "pointer",
             }}
+            onClick={() => nav("/")}
           >
             <img
-              src="/VIMS4ALL_logo.jpeg"
+              src="/VIMS4ALL_logo_small_no_background.jpeg"
               alt="VIMS4ALL"
-              style={{ height: "80px", objectFit: "contain" }}
+              style={{ height: "40px", objectFit: "contain" }}
             />
           </Box>
 
@@ -168,6 +181,11 @@ export default function AppChrome({ children }: PropsWithChildren) {
                 label="Username"
                 value={u}
                 onChange={(e) => setU(e.target.value)}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "rgba(255, 255, 255, 0.9)",
+                  },
+                }}
               />
               <TextField
                 size="small"
@@ -175,17 +193,62 @@ export default function AppChrome({ children }: PropsWithChildren) {
                 label="Password"
                 value={p}
                 onChange={(e) => setP(e.target.value)}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "rgba(255, 255, 255, 0.9)",
+                  },
+                }}
               />
-              <Button type="submit" variant="contained">
+              <Button
+                type="submit"
+                variant="contained"
+                sx={{
+                  backgroundColor: "#FF6B35",
+                  "&:hover": {
+                    backgroundColor: "#E65527",
+                  },
+                }}
+              >
                 Login
               </Button>
             </Box>
           ) : (
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Typography variant="body2">
-                Signed in as <b>{user?.username}</b>
-              </Typography>
-              <Button variant="outlined" onClick={logout}>
+              <Box
+                sx={{
+                  textAlign: "right",
+                  display: { xs: "none", sm: "block" },
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(255, 255, 255, 0.8)",
+                    display: "block",
+                    fontSize: "0.7rem",
+                  }}
+                >
+                  Signed in as
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "white", fontWeight: 600, lineHeight: 1 }}
+                >
+                  {user?.username}
+                </Typography>
+              </Box>
+              <Button
+                variant="outlined"
+                onClick={logout}
+                sx={{
+                  color: "white",
+                  borderColor: "rgba(255, 255, 255, 0.5)",
+                  "&:hover": {
+                    borderColor: "white",
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  },
+                }}
+              >
                 Logout
               </Button>
             </Box>
@@ -194,12 +257,32 @@ export default function AppChrome({ children }: PropsWithChildren) {
       </AppBar>
 
       <Drawer open={drawer} onClose={() => setDrawer(false)}>
-        <Box sx={{ width: 260 }}>
-          <Typography variant="h6" sx={{ p: 2 }}>
-            Navigation
-          </Typography>
+        <Box sx={{ width: 280 }}>
+          {/* Drawer Header */}
+          <Box
+            sx={{
+              p: 3,
+              background: "linear-gradient(135deg, #0D47A1 0%, #42A5F5 100%)",
+              color: "white",
+            }}
+          >
+            <Box
+              sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}
+            >
+              <img
+                src="/VIMS4ALL_logo_small_no_background.jpeg"
+                alt="VIMS4ALL"
+                style={{ height: "40px", objectFit: "contain" }}
+              />
+            </Box>
+            <Typography variant="h6" sx={{ opacity: 0.9 }}>
+              Institute Management
+            </Typography>
+          </Box>
+
           <Divider />
-          <List>
+
+          <List sx={{ px: 2, py: 2 }}>
             {items.map((i) => (
               <ListItemButton
                 key={i.to}
@@ -207,8 +290,20 @@ export default function AppChrome({ children }: PropsWithChildren) {
                   nav(i.to);
                   setDrawer(false);
                 }}
+                sx={{
+                  borderRadius: 2,
+                  mb: 0.5,
+                  "&:hover": {
+                    backgroundColor: "rgba(21, 101, 192, 0.08)",
+                  },
+                }}
               >
-                <ListItemText primary={i.label} />
+                <ListItemText
+                  primary={i.label}
+                  primaryTypographyProps={{
+                    fontWeight: 500,
+                  }}
+                />
               </ListItemButton>
             ))}
           </List>
@@ -258,7 +353,16 @@ export default function AppChrome({ children }: PropsWithChildren) {
         </DialogActions>
       </Dialog>
 
-      <Box component="main" sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
+      <Box
+        component="main"
+        sx={{
+          p: 3,
+          maxWidth: 1400,
+          mx: "auto",
+          minHeight: "calc(100vh - 80px)",
+          backgroundColor: "#F8FAFC",
+        }}
+      >
         {children}
       </Box>
     </ThemeProvider>

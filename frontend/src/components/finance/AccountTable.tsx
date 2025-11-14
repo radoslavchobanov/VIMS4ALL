@@ -114,7 +114,12 @@ export function AccountTable() {
             setInitial(p.row as Row);
             setOpen(true);
           }}
-          sx={{ "& .MuiDataGrid-row": { cursor: "pointer" } }}
+          sx={{
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "rgba(21, 101, 192, 0.08)",
+              cursor: "pointer",
+            },
+          }}
         />
       </div>
 

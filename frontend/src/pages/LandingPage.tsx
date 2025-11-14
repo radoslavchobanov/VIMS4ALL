@@ -7,9 +7,11 @@ import {
   Button,
   Paper,
   Alert,
+  ThemeProvider,
 } from "@mui/material";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
+import theme from "../theme/theme";
 
 export default function LandingPage() {
   const { login, isAuthenticated } = useAuth();
@@ -45,138 +47,159 @@ export default function LandingPage() {
   }
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        backgroundColor: "#f5f5f5",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        py: 4,
-      }}
-    >
-      <Container maxWidth="sm">
-        {/* Logo */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            mb: 4,
-          }}
-        >
-          <img
-            src="/VIMS4ALL_logo.jpeg"
-            alt="VIMS4ALL"
-            style={{
-              maxWidth: "420px",
-              width: "100%",
-              height: "auto",
-              objectFit: "contain",
+    <ThemeProvider theme={theme}>
+      <Box
+        sx={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          py: 4,
+          position: "relative",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "300px",
+            background: "linear-gradient(135deg, #0D47A1 0%, #42A5F5 100%)",
+            opacity: 0.1,
+            zIndex: 0,
+          },
+        }}
+      >
+        <Container maxWidth="sm" sx={{ position: "relative", zIndex: 1 }}>
+          {/* Logo */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              mb: 4,
             }}
-          />
-        </Box>
-
-        {/* Title */}
-        <Typography
-          variant="h4"
-          align="center"
-          sx={{
-            mb: 1,
-            fontWeight: 600,
-            color: "#2c3e50",
-          }}
-        >
-          Institute Management System
-        </Typography>
-
-        <Typography
-          variant="body1"
-          align="center"
-          color="text.secondary"
-          sx={{ mb: 4 }}
-        >
-          Sign in to access your account
-        </Typography>
-
-        {/* Login Card */}
-        <Paper
-          elevation={2}
-          sx={{
-            p: 4,
-            borderRadius: 2,
-            backgroundColor: "white",
-          }}
-        >
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
-          )}
-
-          <Box component="form" onSubmit={handleLogin}>
-            <TextField
-              fullWidth
-              label="Username"
-              variant="outlined"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoComplete="username"
-              sx={{ mb: 2.5 }}
-            />
-            <TextField
-              fullWidth
-              label="Password"
-              type="password"
-              variant="outlined"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              sx={{ mb: 3 }}
-            />
-            <Button
-              fullWidth
-              type="submit"
-              variant="contained"
-              size="large"
-              disabled={loading}
-              sx={{
-                py: 1.5,
-                fontSize: "1rem",
-                fontWeight: 500,
-                textTransform: "none",
-                backgroundColor: "#1976d2",
-                "&:hover": {
-                  backgroundColor: "#1565c0",
-                },
+          >
+            <img
+              src="/VIMS4ALL_logo_large_no_background.jpeg"
+              alt="VIMS4ALL"
+              style={{
+                maxWidth: "500px",
+                width: "100%",
+                height: "auto",
+                objectFit: "contain",
+                filter: "drop-shadow(0px 4px 12px rgba(0, 0, 0, 0.1))",
               }}
-            >
-              {loading ? "Signing In..." : "Sign In"}
-            </Button>
+            />
           </Box>
 
+          {/* Title */}
+          <Typography
+            variant="h4"
+            align="center"
+            sx={{
+              mb: 1,
+              fontWeight: 700,
+              color: "#1565C0",
+            }}
+          >
+            Institute Management System
+          </Typography>
+
+          <Typography
+            variant="body1"
+            align="center"
+            sx={{
+              mb: 4,
+              color: "#64748B",
+            }}
+          >
+            Sign in to access your account
+          </Typography>
+
+          {/* Login Card */}
+          <Paper
+            elevation={3}
+            sx={{
+              p: 4,
+              borderRadius: 3,
+              backgroundColor: "white",
+              boxShadow: "0px 8px 32px rgba(21, 101, 192, 0.12)",
+            }}
+          >
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
+
+            <Box component="form" onSubmit={handleLogin}>
+              <TextField
+                fullWidth
+                label="Username"
+                variant="outlined"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+                sx={{ mb: 2.5 }}
+              />
+              <TextField
+                fullWidth
+                label="Password"
+                type="password"
+                variant="outlined"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                sx={{ mb: 3 }}
+              />
+              <Button
+                fullWidth
+                type="submit"
+                variant="contained"
+                size="large"
+                disabled={loading}
+                sx={{
+                  py: 1.5,
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  textTransform: "none",
+                  background:
+                    "linear-gradient(135deg, #0D47A1 0%, #42A5F5 100%)",
+                  boxShadow: "0px 4px 12px rgba(21, 101, 192, 0.3)",
+                  "&:hover": {
+                    background:
+                      "linear-gradient(135deg, #0D47A1 0%, #1565C0 100%)",
+                    boxShadow: "0px 6px 16px rgba(21, 101, 192, 0.4)",
+                  },
+                }}
+              >
+                {loading ? "Signing In..." : "Sign In"}
+              </Button>
+            </Box>
+
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              align="center"
+              sx={{ mt: 3 }}
+            >
+              Need help? Contact your institution administrator
+            </Typography>
+          </Paper>
+
+          {/* Footer */}
           <Typography
             variant="body2"
-            color="text.secondary"
             align="center"
-            sx={{ mt: 3 }}
+            sx={{ mt: 4, color: "#64748B" }}
           >
-            Need help? Contact your institution administrator
+            © {new Date().getFullYear()} VIMS4ALL. All rights reserved.
           </Typography>
-        </Paper>
-
-        {/* Footer */}
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          align="center"
-          sx={{ mt: 4 }}
-        >
-          © {new Date().getFullYear()} VIMS4ALL. All rights reserved.
-        </Typography>
-      </Container>
-    </Box>
+        </Container>
+      </Box>
+    </ThemeProvider>
   );
 }

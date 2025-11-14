@@ -493,6 +493,12 @@ export default function InstitutePage() {
               getRowId={(r) => r.id}
               loading={funcLoading}
               pageSizeOptions={[10, 25]}
+              sx={{
+                "& .MuiDataGrid-row:hover": {
+                  backgroundColor: "rgba(21, 101, 192, 0.08)",
+                  cursor: "pointer",
+                },
+              }}
             />
           </div>
 

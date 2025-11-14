@@ -238,7 +238,12 @@ export default function EmployeesPage() {
           getRowId={(r) => r.id}
           pageSizeOptions={[25, 50, 100]}
           onRowClick={(params) => openEditById(params.row.id)}
-          sx={{ "& .MuiDataGrid-row": { cursor: "pointer" } }}
+          sx={{
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "rgba(21, 101, 192, 0.08)",
+              cursor: "pointer",
+            },
+          }}
         />
       </div>
 
@@ -821,6 +826,12 @@ function EmployeeDependentsTab({
         columns={cols}
         loading={loading}
         disableRowSelectionOnClick
+        sx={{
+          "& .MuiDataGrid-row:hover": {
+            backgroundColor: "rgba(21, 101, 192, 0.08)",
+            cursor: "pointer",
+          },
+        }}
       />
 
       <EmployeeDependentEditorDialog
@@ -1156,6 +1167,12 @@ function EmployeeCareerTab({
         columns={cols}
         loading={loading}
         disableRowSelectionOnClick
+        sx={{
+          "& .MuiDataGrid-row:hover": {
+            backgroundColor: "rgba(21, 101, 192, 0.08)",
+            cursor: "pointer",
+          },
+        }}
       />
 
       <Dialog

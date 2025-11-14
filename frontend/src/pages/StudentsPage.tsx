@@ -159,7 +159,12 @@ export default function StudentsPage() {
           getRowId={(r) => r.spin}
           pageSizeOptions={[25, 50, 100]}
           onRowClick={(params) => openEditBySpin((params.row as Row).spin)}
-          sx={{ "& .MuiDataGrid-row": { cursor: "pointer" } }}
+          sx={{
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "rgba(21, 101, 192, 0.08)",
+              cursor: "pointer",
+            },
+          }}
         />
       </div>
 
@@ -664,6 +669,12 @@ export function ImportStudentsDialog({
                     pagination: { paginationModel: { page: 0, pageSize: 25 } },
                   }}
                   pageSizeOptions={[25, 50, 100]}
+                  sx={{
+                    "& .MuiDataGrid-row:hover": {
+                      backgroundColor: "rgba(21, 101, 192, 0.08)",
+                      cursor: "pointer",
+                    },
+                  }}
                 />
               </div>
             </>
@@ -1035,6 +1046,12 @@ function StudentCustodiansTab({
         columns={cols}
         loading={loading}
         disableRowSelectionOnClick
+        sx={{
+          "& .MuiDataGrid-row:hover": {
+            backgroundColor: "rgba(21, 101, 192, 0.08)",
+            cursor: "pointer",
+          },
+        }}
       />
 
       <CustodianEditorDialog
@@ -1604,6 +1621,12 @@ function StudentStatusTab({
         columns={cols}
         loading={loading}
         disableRowSelectionOnClick
+        sx={{
+          "& .MuiDataGrid-row:hover": {
+            backgroundColor: "rgba(21, 101, 192, 0.08)",
+            cursor: "pointer",
+          },
+        }}
       />
     </Box>
   );

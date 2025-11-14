@@ -151,7 +151,12 @@ function InstitutesPanel() {
             loading={loading}
             pageSizeOptions={[25, 50, 100]}
             onRowClick={(p) => openEdit(p.row.id)}
-            sx={{ "& .MuiDataGrid-row": { cursor: "pointer" } }}
+            sx={{
+              "& .MuiDataGrid-row:hover": {
+                backgroundColor: "rgba(21, 101, 192, 0.08)",
+                cursor: "pointer",
+              },
+            }}
           />
         </div>
 
@@ -636,6 +641,12 @@ function UsersPanel() {
             columns={columns}
             getRowId={(r) => String(r.id)}
             disableRowSelectionOnClick
+            sx={{
+              "& .MuiDataGrid-row:hover": {
+                backgroundColor: "rgba(21, 101, 192, 0.08)",
+                cursor: "pointer",
+              },
+            }}
           />
         </div>
 

@@ -130,7 +130,7 @@ export function LedgerTable({ account }: Props) {
               fontWeight: 600,
             },
             "& .MuiDataGrid-row:hover": {
-              backgroundColor: "#fafafa",
+              backgroundColor: "rgba(21, 101, 192, 0.08)",
               cursor: "pointer",
             },
             "& .MuiDataGrid-virtualScrollerRenderZone": {
