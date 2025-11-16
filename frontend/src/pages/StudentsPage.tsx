@@ -33,6 +33,7 @@ import type { components } from "../api/__generated__/vims-types";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { PhotoBox } from "../components/PhotoBox";
 import { useChoices } from "../hooks/useChoices";
+import { useAuth } from "../auth/AuthContext";
 import {
   STUDENTS_ENDPOINT,
   STUDENT_PHOTO_ENDPOINT,
@@ -58,6 +59,7 @@ type Row = {
   spin: string;
   given_name: string;
   family_name: string;
+  current_term?: string | null;
   current_status?: string | null;
   current_course_class_name?: string | null;
 };
@@ -70,6 +72,12 @@ type Page<T> = {
 
 /* ================== DataGrid Columns ================== */
 const columns: GridColDef<Row>[] = [
+  {
+    field: "current_term",
+    headerName: "Current Term",
+    width: 150,
+    valueGetter: (_value, row: any) => row.current_term || "",
+  },
   { field: "spin", headerName: "SPIN", width: 160 },
   { field: "given_name", headerName: "Given name", flex: 1, minWidth: 140 },
   { field: "family_name", headerName: "Family name", flex: 1, minWidth: 140 },
@@ -78,13 +86,13 @@ const columns: GridColDef<Row>[] = [
     headerName: "Course Class",
     flex: 1,
     minWidth: 180,
-    valueGetter: (_value, row: any) => row.current_course_class_name || "—"
+    valueGetter: (_value, row: any) => row.current_course_class_name || "",
   },
   {
     field: "current_status",
     headerName: "Status",
     width: 140,
-    valueGetter: (_value, row: any) => row.current_status || "—"
+    valueGetter: (_value, row: any) => row.current_status || "",
   },
 ];
 
@@ -92,6 +100,7 @@ const columns: GridColDef<Row>[] = [
    PAGE
 ============================================================================= */
 export default function StudentsPage() {
+  const { user } = useAuth();
   const [list, setList] = useState<StudentRead[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -121,6 +130,7 @@ export default function StudentsPage() {
           spin: s.spin,
           given_name: s.first_name,
           family_name: s.last_name,
+          current_term: s.current_term,
           current_status: s.current_status,
           current_course_class_name: s.current_course_class_name,
         }))
@@ -157,7 +167,14 @@ export default function StudentsPage() {
           mb: 2,
         }}
       >
-        <Typography variant="h6">Students</Typography>
+        <Box>
+          <Typography variant="h6">Students</Typography>
+          {user?.institute?.name && (
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              {user.institute.name}
+            </Typography>
+          )}
+        </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button
             variant="outlined"
@@ -181,6 +198,10 @@ export default function StudentsPage() {
           pageSizeOptions={[25, 50, 100]}
           onRowClick={(params) => openEditBySpin((params.row as Row).spin)}
           sx={{
+            fontSize: "16px",
+            "& .MuiDataGrid-columnHeaders": {
+              fontSize: "16px",
+            },
             "& .MuiDataGrid-row:hover": {
               backgroundColor: "rgba(21, 101, 192, 0.08)",
               cursor: "pointer",
@@ -1522,7 +1543,9 @@ function StudentStatusTab({
         } else if (typeof value === "string") {
           errors.push(isGlobal ? value : `${field}: ${value}`);
         } else if (value && typeof value === "object") {
-          for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, any>)) {
+          for (const [nestedKey, nestedValue] of Object.entries(
+            value as Record<string, any>
+          )) {
             if (Array.isArray(nestedValue)) {
               nestedValue.forEach((msg: any) => {
                 errors.push(`${field}.${nestedKey}: ${String(msg)}`);
@@ -1644,78 +1667,84 @@ function StudentStatusTab({
           >
             {/* Course class is selected first */}
             <TextField
-            select
-            label="Course class"
-            value={form.course_class ?? ""}
-            onChange={(e) => onChangeClass(e.target.value)}
-            required
-            disabled={!!lockedCourseClass}
-            helperText={
-              lockedCourseClass
-                ? "Course class locked after becoming active. Change only after final status."
-                : ""
-            }
-          >
-            <MenuItem value="">{/* empty */}</MenuItem>
-            {classes.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.name ?? c.id}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            select
-            label="Status"
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-            required
-            disabled={!form.course_class || allowedLoading}
-            helperText={
-              !form.course_class
-                ? "Select a class to load allowed statuses"
-                : allowedLoading
-                ? "Loading allowed statuses..."
-                : ""
-            }
-          >
-            <MenuItem value="">{/* empty */}</MenuItem>
-            {(allowed ?? []).map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Effective at"
-            type="datetime-local"
-            value={form.effective_at}
-            onChange={(e) => setForm({ ...form, effective_at: e.target.value })}
-            InputLabelProps={{ shrink: true }}
-          />
-
-          <TextField
-            label="Note"
-            value={form.note}
-            onChange={(e) => setForm({ ...form, note: e.target.value })}
-            multiline
-            minRows={2}
-          />
-
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Button
-              variant="contained"
-              onClick={saveStatus}
-              disabled={!canSave}
+              select
+              label="Course class"
+              value={form.course_class ?? ""}
+              onChange={(e) => onChangeClass(e.target.value)}
+              required
+              disabled={!!lockedCourseClass}
+              helperText={
+                lockedCourseClass
+                  ? "Course class locked after becoming active. Change only after final status."
+                  : ""
+              }
             >
-              Save status
-            </Button>
-            <Button onClick={() => {
-              setAdding(false);
-              setStatusErrors([]);
-            }}>Cancel</Button>
-          </Box>
+              <MenuItem value="">{/* empty */}</MenuItem>
+              {classes.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name ?? c.id}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              label="Status"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              required
+              disabled={!form.course_class || allowedLoading}
+              helperText={
+                !form.course_class
+                  ? "Select a class to load allowed statuses"
+                  : allowedLoading
+                  ? "Loading allowed statuses..."
+                  : ""
+              }
+            >
+              <MenuItem value="">{/* empty */}</MenuItem>
+              {(allowed ?? []).map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              label="Effective at"
+              type="datetime-local"
+              value={form.effective_at}
+              onChange={(e) =>
+                setForm({ ...form, effective_at: e.target.value })
+              }
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <TextField
+              label="Note"
+              value={form.note}
+              onChange={(e) => setForm({ ...form, note: e.target.value })}
+              multiline
+              minRows={2}
+            />
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Button
+                variant="contained"
+                onClick={saveStatus}
+                disabled={!canSave}
+              >
+                Save status
+              </Button>
+              <Button
+                onClick={() => {
+                  setAdding(false);
+                  setStatusErrors([]);
+                }}
+              >
+                Cancel
+              </Button>
+            </Box>
           </Box>
         </Box>
       )}

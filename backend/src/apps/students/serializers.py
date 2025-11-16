@@ -30,6 +30,7 @@ class StudentReadSerializer(serializers.ModelSerializer):
     current_status = serializers.SerializerMethodField()
     current_course_class = serializers.SerializerMethodField()
     current_course_class_name = serializers.SerializerMethodField()
+    current_term = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -62,8 +63,9 @@ class StudentReadSerializer(serializers.ModelSerializer):
             "current_status",
             "current_course_class",
             "current_course_class_name",
+            "current_term",
         ]
-        read_only_fields = ["spin", "created_at", "photo_url", "current_status", "current_course_class", "current_course_class_name"]
+        read_only_fields = ["spin", "created_at", "photo_url", "current_status", "current_course_class", "current_course_class_name", "current_term"]
 
     def get_photo_url(self, obj):
         f = getattr(obj, "photo", None)
@@ -149,6 +151,51 @@ class StudentReadSerializer(serializers.ModelSerializer):
         )
 
         return latest_status.course_class.name if latest_status and latest_status.course_class else None
+
+    def get_current_term(self, obj):
+        """
+        Get the current academic term name for this student.
+        Logic: Based on the student's latest active status, find the term that:
+        - For enquire/accepted status: the next (future) term
+        - For active status: the current term (today's date falls within term dates)
+        """
+        from apps.terms.models import AcademicTerm
+        from django.utils import timezone
+
+        # Get the latest active status
+        active_status = (
+            mgr(StudentStatus)
+            .filter(student=obj, is_active=True)
+            .order_by("-effective_at", "-id")
+            .first()
+        )
+
+        if not active_status:
+            return None
+
+        status_code = active_status.status
+        today = timezone.now().date()
+
+        # For active students, find the current term (today falls within term dates)
+        if status_code == Status.ACTIVE:
+            current_term = (
+                AcademicTerm.objects
+                .filter(institute_id=obj.institute_id, start_date__lte=today, end_date__gte=today)
+                .first()
+            )
+            return current_term.name if current_term else None
+
+        # For enquire/accepted students, find the next future term
+        if status_code in {Status.ENQUIRE, Status.ACCEPTED}:
+            next_term = (
+                AcademicTerm.objects
+                .filter(institute_id=obj.institute_id, start_date__gt=today)
+                .order_by("start_date")
+                .first()
+            )
+            return next_term.name if next_term else None
+
+        return None
 
 
 class StudentWriteSerializer(serializers.ModelSerializer):
