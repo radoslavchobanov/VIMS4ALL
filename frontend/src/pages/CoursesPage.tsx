@@ -68,8 +68,6 @@ type CourseClassPatch = Partial<
     | "certificate_type"
     | "credits"
     | "hours_per_term"
-    | "start_date"
-    | "end_date"
   >
 >;
 
@@ -422,18 +420,6 @@ function CourseClassesTab({
         valueGetter: (_v, r) => r.hours_per_term ?? "",
       },
       {
-        field: "start_date",
-        headerName: "Start",
-        width: 130,
-        valueGetter: (_v, r) => r.start_date ?? "",
-      },
-      {
-        field: "end_date",
-        headerName: "End",
-        width: 130,
-        valueGetter: (_v, r) => r.end_date ?? "",
-      },
-      {
         field: "actions",
         headerName: "",
         width: 110,
@@ -536,8 +522,6 @@ function CourseClassEditorDialog({
     certificate_type: initial.certificate_type ?? "",
     credits: initial.credits ?? null,
     hours_per_term: initial.hours_per_term ?? null,
-    start_date: initial.start_date ?? null,
-    end_date: initial.end_date ?? null,
   });
 
   useEffect(() => {
@@ -547,8 +531,6 @@ function CourseClassEditorDialog({
         certificate_type: initial.certificate_type ?? "",
         credits: initial.credits ?? null,
         hours_per_term: initial.hours_per_term ?? null,
-        start_date: initial.start_date ?? null,
-        end_date: initial.end_date ?? null,
       });
     }
   }, [open, initial.id]);
@@ -660,18 +642,6 @@ function CourseClassEditorDialog({
             }
             fullWidth
             margin="dense"
-          />
-
-          <TextField
-            label="End date"
-            type="date"
-            value={form.end_date ?? ""}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, end_date: e.target.value || null }))
-            }
-            fullWidth
-            margin="dense"
-            InputLabelProps={{ shrink: true }}
           />
         </Box>
       </DialogContent>

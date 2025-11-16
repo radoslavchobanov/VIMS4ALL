@@ -59,7 +59,6 @@ type Row = {
   spin: string;
   given_name: string;
   family_name: string;
-  current_term?: string | null;
   current_status?: string | null;
   current_course_class_name?: string | null;
 };
@@ -72,12 +71,6 @@ type Page<T> = {
 
 /* ================== DataGrid Columns ================== */
 const columns: GridColDef<Row>[] = [
-  {
-    field: "current_term",
-    headerName: "Current Term",
-    width: 150,
-    valueGetter: (_value, row: any) => row.current_term || "",
-  },
   { field: "spin", headerName: "SPIN", width: 160 },
   { field: "given_name", headerName: "Given name", flex: 1, minWidth: 140 },
   { field: "family_name", headerName: "Family name", flex: 1, minWidth: 140 },
@@ -100,7 +93,7 @@ const columns: GridColDef<Row>[] = [
    PAGE
 ============================================================================= */
 export default function StudentsPage() {
-  const { user } = useAuth();
+  const { user, hasFunctionCode } = useAuth();
   const [list, setList] = useState<StudentRead[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -113,6 +106,11 @@ export default function StudentsPage() {
     severity: "success" | "error";
     msg: string;
   } | null>(null);
+
+  // Move students state
+  const [openMoveDialog, setOpenMoveDialog] = useState(false);
+  const [currentTerm, setCurrentTerm] = useState<AcademicTermRead | null>(null);
+  const [movingStudents, setMovingStudents] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -130,7 +128,6 @@ export default function StudentsPage() {
           spin: s.spin,
           given_name: s.first_name,
           family_name: s.last_name,
-          current_term: s.current_term,
           current_status: s.current_status,
           current_course_class_name: s.current_course_class_name,
         }))
@@ -142,7 +139,36 @@ export default function StudentsPage() {
 
   useEffect(() => {
     load();
+    loadCurrentTerm();
   }, []);
+
+  async function loadCurrentTerm() {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const r = await api.get<Page<AcademicTermRead>>(TERMS_ENDPOINT);
+      const terms = Array.isArray(r.data) ? r.data : r.data.results ?? [];
+
+      // Find current term (today falls within term dates)
+      let current = terms.find((t: any) => {
+        return t.start_date <= today && t.end_date >= today;
+      });
+
+      // If no current term, find the most recently ended term (for move students window)
+      if (!current) {
+        const endedTerms = terms
+          .filter((t: any) => t.end_date < today)
+          .sort((a: any, b: any) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+
+        if (endedTerms.length > 0) {
+          current = endedTerms[0];
+        }
+      }
+
+      setCurrentTerm(current || null);
+    } catch (err) {
+      console.error("Failed to load current term:", err);
+    }
+  }
 
   function openCreate() {
     setInitial(undefined);
@@ -156,6 +182,47 @@ export default function StudentsPage() {
       setOpenForm(true);
     }
   }
+
+  async function handleMoveStudents() {
+    if (!currentTerm?.id) return;
+
+    setMovingStudents(true);
+    try {
+      const response = await api.post(
+        `${TERMS_ENDPOINT}${currentTerm.id}/move-students/`
+      );
+
+      setOpenMoveDialog(false);
+      setToast({
+        severity: "success",
+        msg: response.data.message || `Moved ${response.data.students_moved} students successfully.`,
+      });
+      load(); // Refresh student list
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || err?.message || "Failed to move students.";
+      setToast({ severity: "error", msg: errorMsg });
+    } finally {
+      setMovingStudents(false);
+    }
+  }
+
+  // Check if user can move students (director or registrar)
+  const canMoveStudents =
+    user?.role === "institute_admin" ||
+    hasFunctionCode("director") ||
+    hasFunctionCode("registrar");
+
+  // Check if within 1 week after term end
+  const canExecuteMove = useMemo(() => {
+    if (!currentTerm?.end_date) return false;
+
+    const today = new Date();
+    const endDate = new Date(currentTerm.end_date);
+    const oneWeekAfter = new Date(endDate);
+    oneWeekAfter.setDate(oneWeekAfter.getDate() + 7);
+
+    return today >= endDate && today <= oneWeekAfter;
+  }, [currentTerm]);
 
   return (
     <Paper sx={{ p: 2 }}>
@@ -176,6 +243,17 @@ export default function StudentsPage() {
           )}
         </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
+          {canMoveStudents && canExecuteMove && (
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenMoveDialog(true)}
+              sx={{ mr: 1 }}
+            >
+              Move Students to Next Class
+            </Button>
+          )}
           <Button
             variant="outlined"
             startIcon={<UploadFileIcon />}
@@ -243,6 +321,54 @@ export default function StudentsPage() {
         }}
         onError={(m) => setToast({ severity: "error", msg: m })}
       />
+
+      {/* Move Students Confirmation Dialog */}
+      <Dialog
+        open={openMoveDialog}
+        onClose={() => !movingStudents && setOpenMoveDialog(false)}
+      >
+        <DialogTitle>Move Students to Next Class</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            This will automatically progress all active students to the next class level for the upcoming term.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+            Important:
+          </Typography>
+          <Box sx={{ pl: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              • This action can only be performed ONCE per term
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              • Only students below the maximum class level will be moved
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              • Students will be automatically enrolled in the next class
+            </Typography>
+          </Box>
+          {currentTerm && (
+            <Typography variant="body2" sx={{ mt: 2 }}>
+              Current term: {currentTerm.name}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setOpenMoveDialog(false)}
+            disabled={movingStudents}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleMoveStudents}
+            variant="contained"
+            color="primary"
+            disabled={movingStudents}
+          >
+            {movingStudents ? "Moving..." : "Move Students"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {toast ? (
         <Snackbar
@@ -1484,8 +1610,15 @@ function StudentStatusTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows.length]);
 
-  // ---- grid columns (term removed) ----
+  // ---- grid columns ----
   const cols: GridColDef<StudentStatusRead>[] = [
+    {
+      field: "term",
+      headerName: "Term",
+      flex: 1,
+      minWidth: 140,
+      valueGetter: (_value, row) => (row as any).term ?? "",
+    },
     { field: "status", headerName: "Status", flex: 1, minWidth: 140 },
     {
       field: "class_name",
