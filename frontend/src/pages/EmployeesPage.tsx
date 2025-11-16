@@ -414,9 +414,21 @@ function EmployeesForm({
     }
   };
 
+  const dialogTitle = mode === "create" ? "Create Employee" : "Edit Employee";
+  const dialogSubtitle =
+    mode === "edit" && initial
+      ? [
+          `EPIN: ${(initial as any).epin ?? ""}`,
+          `Name: ${(initial as any).first_name ?? ""} ${
+            (initial as any).last_name ?? ""
+          }`.trim(),
+        ]
+      : undefined;
+
   return (
     <EntityFormDialog<EmployeeWrite, EmployeeRead>
-      title={mode === "create" ? "Create Employee" : "Edit Employee"}
+      title={dialogTitle}
+      subtitle={dialogSubtitle}
       open={open}
       mode={mode}
       initial={initial}
@@ -1143,22 +1155,12 @@ function EmployeeCareerTab({
 
   return (
     <Box sx={{ mt: 1 }}>
-      <Box sx={{ display: "flex", gap: 1, mb: 1, justifyContent: "flex-end" }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={openCreate}
-        >
-          New assignment
-        </Button>
-        {/* <Button
-          variant="outlined"
-          onClick={endCurrent}
-          disabled={!openCurrent()}
-        >
-          End current
-        </Button> */}
-      </Box>
+      <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+        New assignment
+      </Button>
+      <Box
+        sx={{ display: "flex", gap: 1, mb: 1, justifyContent: "flex-end" }}
+      ></Box>
 
       <DataGrid<Career>
         autoHeight

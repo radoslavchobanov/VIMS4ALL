@@ -16,12 +16,16 @@ def _advisory_lock_key(institute_id: int, year: int) -> int:
 
 
 def compute_next_term_name(
-    *, institute_id: int, year: int | None = None
+    *, institute_id: int, year: int | None = None, start_date: date | None = None
 ) -> tuple[str, int]:
     """
     Pure computation (no write). Scans existing names with prefix TYYYY_ and returns next ordinal.
+    If start_date is provided, uses its year. Otherwise falls back to provided year or current year.
     """
-    yr = year or date.today().year
+    if start_date:
+        yr = start_date.year
+    else:
+        yr = year or date.today().year
     prefix = f"T{yr}_"
     names = list(
         AcademicTerm.objects.filter(
@@ -43,13 +47,17 @@ def compute_next_term_name(
 def create_term_with_auto_name(
     *, institute_id: int, start_date, end_date, year: int | None = None
 ) -> AcademicTerm:
-    yr = year or date.today().year
+    # Extract year from start_date if available, otherwise fallback to provided year or current year
+    if isinstance(start_date, date):
+        yr = start_date.year
+    else:
+        yr = year or date.today().year
     lock_key = _advisory_lock_key(institute_id, yr)
     with connection.cursor() as cur:
         cur.execute("SELECT pg_advisory_xact_lock(%s);", [lock_key])
 
     # Recompute under lock and validate before persisting
-    name, _ = compute_next_term_name(institute_id=institute_id, year=yr)
+    name, _ = compute_next_term_name(institute_id=institute_id, start_date=start_date)
 
     term = AcademicTerm(
         institute_id=institute_id,

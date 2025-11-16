@@ -58,10 +58,26 @@ class CourseClassViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedAndTenant]
 
     def get_queryset(self):
+        from django.utils import timezone
+        from django.db.models import Q
+
         iid = getattr(self.request.user, "institute_id", None)
+
+        # Base queryset filtered by institute
         qs = CourseClass.objects.select_related("course").filter(
             course__institute_id=iid
         )
+
+        # Only apply active course filtering for list/retrieve actions
+        # Allow update/partial_update/delete to access expired courses
+        if self.action in ["list", "retrieve"]:
+            today = timezone.now().date()
+            # Only show course classes from active courses
+            # Active = valid_until is NULL OR valid_until > today
+            qs = qs.filter(
+                Q(course__valid_until__isnull=True) | Q(course__valid_until__gt=today)
+            )
+
         course_id = self.request.query_params.get("course")
         if course_id:
             qs = qs.filter(course_id=course_id)

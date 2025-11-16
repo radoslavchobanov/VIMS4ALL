@@ -33,10 +33,32 @@ class AcademicTermViewSet(ScopedModelViewSet):
     @action(detail=False, methods=["get"], url_path="next-name")
     def next_name(self, request):
         iid = self.get_institute_id()
+        start_date_param = request.query_params.get("start_date")
         year_param = request.query_params.get("year")
-        year = int(year_param) if year_param else date.today().year
-        name, ordinal = compute_next_term_name(institute_id=iid, year=year)
-        return Response({"name": name, "year": year, "ordinal": ordinal})
+
+        # Parse start_date if provided (format: YYYY-MM-DD)
+        start_date_obj = None
+        if start_date_param:
+            try:
+                start_date_obj = date.fromisoformat(start_date_param)
+            except (ValueError, TypeError):
+                pass
+
+        # Compute next name based on start_date or year
+        year = int(year_param) if year_param else None
+        name, ordinal = compute_next_term_name(
+            institute_id=iid, year=year, start_date=start_date_obj
+        )
+
+        # Determine the year used for the response
+        if start_date_obj:
+            response_year = start_date_obj.year
+        elif year:
+            response_year = year
+        else:
+            response_year = date.today().year
+
+        return Response({"name": name, "year": response_year, "ordinal": ordinal})
 
     @extend_schema(
         summary="Move students to next term",

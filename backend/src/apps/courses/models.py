@@ -22,6 +22,8 @@ class Course(models.Model):
     total_classes = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1)], default=1
     )
+    valid_from = models.DateField(null=True, blank=True)
+    valid_until = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -46,7 +48,7 @@ class CourseClass(models.Model):
     name = models.CharField(
         max_length=255, default=""
     )  # "Sewing-1" (kept in sync by services)
-    # Editable fields in “Course Classes” tab:
+    # Editable fields in "Course Classes" tab:
     fee_amount = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True
     )  # currency via institute policy
@@ -57,8 +59,14 @@ class CourseClass(models.Model):
     hours_per_term = models.PositiveIntegerField(null=True, blank=True)
     start_date = models.DateField(
         null=True, blank=True, default=timezone.localdate
-    )  # optional; not “Term”-bound in this version
+    )  # optional; not "Term"-bound in this version
     end_date = models.DateField(null=True, blank=True)
+
+    # Description fields
+    weekly_lessons = models.TextField(blank=True, null=True)
+    learning_outcomes = models.TextField(blank=True, null=True)  # What you will know
+    required_knowledge = models.TextField(blank=True, null=True)  # Required prior knowledge
+    required_skills = models.TextField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

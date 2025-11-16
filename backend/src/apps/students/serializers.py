@@ -298,9 +298,17 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
         req = self.context.get("request")
         iid = getattr(getattr(req, "user", None), "institute_id", None)
         if iid:
+            from django.utils import timezone
+            from django.db.models import Q
+
+            today = timezone.now().date()
             self.fields["student"].queryset = mgr(Student).filter(institute_id=iid)
+            # Only show course classes from active courses
+            # Active = valid_until is NULL OR valid_until > today
             self.fields["course_class"].queryset = mgr(CourseClass).filter(
                 course__institute_id=iid
+            ).filter(
+                Q(course__valid_until__isnull=True) | Q(course__valid_until__gt=today)
             )
 
     def validate(self, attrs):

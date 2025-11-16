@@ -225,7 +225,10 @@ function TermForm({
       setTab(0);
       setServerErrors([]);
     }
-    if (open && !initial) setSuggestedName("");
+    if (open && !initial) {
+      setSuggestedName("");
+      setStartDate("");
+    }
   }, [open, initial?.id]);
 
   const empty = (): AcademicTermWrite => ({
@@ -241,23 +244,29 @@ function TermForm({
   });
 
   // When opening the dialog in CREATE mode, fetch the next name preview
+  // Also re-fetch when start_date changes (with debounce to avoid flashing during calendar navigation)
+  const [startDate, setStartDate] = useState<string>("");
+
   useEffect(() => {
-    const run = async () => {
-      if (open && !initial && !suggestedName) {
+    // Debounce the API call to avoid triggering while user navigates calendar months
+    const timeoutId = setTimeout(async () => {
+      if (open && !initial) {
         try {
+          const params = startDate ? { start_date: startDate } : {};
           const r = await api.get<{
             name: string;
             year: number;
             ordinal: number;
-          }>(`${TERMS_ENDPOINT}next-name/`);
+          }>(`${TERMS_ENDPOINT}next-name/`, { params });
           setSuggestedName(r.data.name);
         } catch {
           // ignore; backend still generates on POST
         }
       }
-    };
-    run();
-  }, [open, initial, suggestedName]);
+    }, 300); // 300ms debounce - only call API after user stops changing the date
+
+    return () => clearTimeout(timeoutId);
+  }, [open, initial, startDate]);
 
   // IMPORTANT: we catch here, populate banner, then rethrow so EntityFormDialog
   // can still run its error branch (spinner/disable reset etc.)
@@ -284,7 +293,7 @@ function TermForm({
 
   return (
     <EntityFormDialog<AcademicTermWrite, AcademicTerm>
-      key={`term-form-${mode}-${initial?.id ?? "new"}-${suggestedName}`}
+      key={`term-form-${mode}-${initial?.id ?? "new"}`}
       title={mode === "create" ? "Create Term" : "Edit Term"}
       open={open}
       mode={mode}
@@ -337,7 +346,7 @@ function TermForm({
           >
             <TextField
               label="Name"
-              value={form.name}
+              value={mode === "create" ? suggestedName : form.name}
               InputProps={{ readOnly: true }}
               helperText={
                 mode === "create"
@@ -365,6 +374,10 @@ function TermForm({
               onChange={(e) => {
                 setServerErrors([]); // clear banner on edit
                 setForm({ start_date: e.target.value });
+                // Update startDate state to trigger next-name re-fetch in CREATE mode
+                if (mode === "create") {
+                  setStartDate(e.target.value);
+                }
               }}
               InputLabelProps={{ shrink: true }}
               required

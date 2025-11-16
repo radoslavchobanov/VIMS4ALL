@@ -39,11 +39,13 @@ type Course =
       name: string;
       abbr_name: string;
       classes_total: number;
+      valid_from?: string | null;
+      valid_until?: string | null;
       created_at?: string;
       updated_at?: string;
     };
 
-type CourseWrite = Pick<Course, "name" | "abbr_name" | "classes_total">;
+type CourseWrite = Pick<Course, "name" | "abbr_name" | "classes_total" | "valid_from" | "valid_until">;
 
 type CourseClass =
   | components["schemas"]["CourseClassRead"]
@@ -68,6 +70,10 @@ type CourseClassPatch = Partial<
     | "certificate_type"
     | "credits"
     | "hours_per_term"
+    | "weekly_lessons"
+    | "learning_outcomes"
+    | "required_knowledge"
+    | "required_skills"
   >
 >;
 
@@ -102,12 +108,21 @@ function toNullPatch<T extends Record<string, unknown>>(obj: T): Partial<T> {
 }
 
 /* ================== Grid (Courses) ================== */
-type Row = { id: number; abbr_name: string; name: string; classes: number };
+type Row = {
+  id: number;
+  abbr_name: string;
+  name: string;
+  classes: number;
+  valid_from?: string | null;
+  valid_until?: string | null;
+};
 
 const columns: GridColDef<Row>[] = [
   { field: "abbr_name", headerName: "Abbr", width: 140 },
   { field: "name", headerName: "Course name", flex: 1, minWidth: 220 },
   { field: "classes", headerName: "# Classes", width: 130 },
+  { field: "valid_from", headerName: "Valid From", width: 140 },
+  { field: "valid_until", headerName: "Valid Until", width: 140 },
 ];
 
 /* ================== Page ================== */
@@ -138,6 +153,8 @@ export default function CoursesPage() {
           abbr_name: c.abbr_name,
           name: c.name,
           classes: c.classes_total,
+          valid_from: c.valid_from,
+          valid_until: c.valid_until,
         }))
       );
     } finally {
@@ -257,12 +274,16 @@ function CoursesForm({
     name: "",
     abbr_name: "",
     classes_total: 1,
+    valid_from: null,
+    valid_until: null,
   });
 
   const mapRead = (c: Course): CourseWrite => ({
     name: c.name ?? "",
     abbr_name: c.abbr_name ?? "",
     classes_total: c.classes_total ?? 1,
+    valid_from: c.valid_from ?? null,
+    valid_until: c.valid_until ?? null,
   });
 
   const onSubmit = async (payload: CourseWrite) => {
@@ -335,6 +356,29 @@ function CoursesForm({
                     } as any)
                   }
                   required
+                />
+              </Box>
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 2,
+                  gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                  mt: 2,
+                }}
+              >
+                <TextField
+                  label="Valid From"
+                  type="date"
+                  value={form.valid_from ?? ""}
+                  onChange={(e) => update({ valid_from: e.target.value || null } as any)}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  label="Valid Until"
+                  type="date"
+                  value={form.valid_until ?? ""}
+                  onChange={(e) => update({ valid_until: e.target.value || null } as any)}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Box>
               <Typography variant="caption" sx={{ display: "block", mt: 1 }}>
@@ -522,6 +566,10 @@ function CourseClassEditorDialog({
     certificate_type: initial.certificate_type ?? "",
     credits: initial.credits ?? null,
     hours_per_term: initial.hours_per_term ?? null,
+    weekly_lessons: initial.weekly_lessons ?? "",
+    learning_outcomes: initial.learning_outcomes ?? "",
+    required_knowledge: initial.required_knowledge ?? "",
+    required_skills: initial.required_skills ?? "",
   });
 
   useEffect(() => {
@@ -531,6 +579,10 @@ function CourseClassEditorDialog({
         certificate_type: initial.certificate_type ?? "",
         credits: initial.credits ?? null,
         hours_per_term: initial.hours_per_term ?? null,
+        weekly_lessons: initial.weekly_lessons ?? "",
+        learning_outcomes: initial.learning_outcomes ?? "",
+        required_knowledge: initial.required_knowledge ?? "",
+        required_skills: initial.required_skills ?? "",
       });
     }
   }, [open, initial.id]);
@@ -641,6 +693,57 @@ function CourseClassEditorDialog({
               }))
             }
             fullWidth
+            margin="dense"
+          />
+        </Box>
+
+        {/* Description fields - full width multiline */}
+        <Box sx={{ mt: 2 }}>
+          <TextField
+            label="Weekly lessons for this course"
+            value={form.weekly_lessons ?? ""}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, weekly_lessons: e.target.value }))
+            }
+            fullWidth
+            multiline
+            rows={3}
+            margin="dense"
+          />
+
+          <TextField
+            label="What you will know after you finished this class"
+            value={form.learning_outcomes ?? ""}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, learning_outcomes: e.target.value }))
+            }
+            fullWidth
+            multiline
+            rows={3}
+            margin="dense"
+          />
+
+          <TextField
+            label="Required prior knowledge"
+            value={form.required_knowledge ?? ""}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, required_knowledge: e.target.value }))
+            }
+            fullWidth
+            multiline
+            rows={3}
+            margin="dense"
+          />
+
+          <TextField
+            label="Required skills"
+            value={form.required_skills ?? ""}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, required_skills: e.target.value }))
+            }
+            fullWidth
+            multiline
+            rows={3}
             margin="dense"
           />
         </Box>

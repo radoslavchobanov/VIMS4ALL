@@ -29,6 +29,8 @@ class CourseReadSerializer(serializers.ModelSerializer):
             "name",
             "abbr_name",  # legacy alias
             "classes_total",  # legacy alias
+            "valid_from",
+            "valid_until",
             "created_at",
             "updated_at",
         ]
@@ -45,6 +47,8 @@ class CourseWriteSerializer(serializers.ModelSerializer):
     classes_total = serializers.IntegerField(
         source="total_classes", required=False, write_only=True
     )
+    valid_from = serializers.DateField(required=False, allow_null=True)
+    valid_until = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = Course
@@ -54,6 +58,8 @@ class CourseWriteSerializer(serializers.ModelSerializer):
             # new names
             "abbreviation",
             "total_classes",
+            "valid_from",
+            "valid_until",
             # legacy write aliases
             "abbr_name",
             "classes_total",
@@ -104,6 +110,10 @@ class CourseClassReadSerializer(serializers.ModelSerializer):
             "hours_per_term",
             "start_date",
             "end_date",
+            "weekly_lessons",
+            "learning_outcomes",
+            "required_knowledge",
+            "required_skills",
             "created_at",
             "updated_at",
         ]
@@ -134,6 +144,10 @@ class CourseClassWriteSerializer(serializers.ModelSerializer):
             "hours_per_term",
             "start_date",
             "end_date",
+            "weekly_lessons",
+            "learning_outcomes",
+            "required_knowledge",
+            "required_skills",
         ]
 
     def validate(self, attrs):
