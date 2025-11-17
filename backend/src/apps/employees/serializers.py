@@ -82,19 +82,24 @@ class EmployeeReadSerializer(serializers.ModelSerializer):
             "bank_name",
             "bank_account_number",
             "created_at",
+            "updated_at",
             "photo_url",
         ]
-        read_only_fields = ["epin", "created_at", "photo_url"]
+        read_only_fields = ["epin", "created_at", "updated_at", "photo_url"]
 
     def get_photo_url(self, obj):
         key = getattr(getattr(obj, "photo", None), "name", None)
-        return public_media_url(key) if key else None
+        # Convert updated_at to Unix timestamp for cache busting
+        timestamp = None
+        if hasattr(obj, "updated_at") and obj.updated_at:
+            timestamp = str(int(obj.updated_at.timestamp()))
+        return public_media_url(key, timestamp=timestamp) if key else None
 
 
 class EmployeeWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
-        exclude = ["id", "epin", "created_at", "institute", "photo"]
+        exclude = ["id", "epin", "created_at", "updated_at", "institute", "photo"]
 
     def create(self, validated):
         req = self.context["request"]
@@ -231,4 +236,8 @@ class EmployeeListSerializer(serializers.ModelSerializer):
 
     def get_photo_url(self, obj):
         key = getattr(getattr(obj, "photo", None), "name", None)
-        return public_media_url(key) if key else None
+        # Convert updated_at to Unix timestamp for cache busting
+        timestamp = None
+        if hasattr(obj, "updated_at") and obj.updated_at:
+            timestamp = str(int(obj.updated_at.timestamp()))
+        return public_media_url(key, timestamp=timestamp) if key else None

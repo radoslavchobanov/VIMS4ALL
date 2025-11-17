@@ -59,6 +59,7 @@ class Employee(InstituteScopedModel):
 
     comments = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
 
     system_user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

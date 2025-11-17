@@ -131,9 +131,22 @@ class CourseClassReadSerializer(serializers.ModelSerializer):
 class CourseClassWriteSerializer(serializers.ModelSerializer):
     """Update mutable attributes only; creation/destruction is managed by Course."""
 
-    certificate_type = serializers.ChoiceField(
-        choices=[c.value for c in CertificateType], required=False, allow_blank=True
+    fee_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
     )
+    certificate_type = serializers.ChoiceField(
+        choices=[c.value for c in CertificateType], required=False, allow_blank=True, allow_null=True
+    )
+    credits = serializers.DecimalField(
+        max_digits=6, decimal_places=2, required=False, allow_null=True
+    )
+    hours_per_term = serializers.IntegerField(required=False, allow_null=True)
+    start_date = serializers.DateField(required=False, allow_null=True)
+    end_date = serializers.DateField(required=False, allow_null=True)
+    weekly_lessons = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    learning_outcomes = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    required_knowledge = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    required_skills = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = CourseClass

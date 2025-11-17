@@ -7,7 +7,7 @@ from apps.institutes.models import Institute
 
 
 def public_media_url(
-    key: Optional[str], fallback_institute_id: Optional[int] = None
+    key: Optional[str], fallback_institute_id: Optional[int] = None, timestamp: Optional[str] = None
 ) -> Optional[str]:
     """
     Build a browser-facing URL for an object key inside the media bucket.
@@ -15,6 +15,7 @@ def public_media_url(
     - If MEDIA_PUBLIC_BASE is set, we join it with the key.
     - Otherwise we fall back to storage.url(key).
     - If no key is provided, we fall back to the current institute's logo (if set).
+    - If timestamp is provided, append it as a query parameter for cache busting.
     """
 
     if not key:
@@ -31,9 +32,16 @@ def public_media_url(
 
     base = getattr(settings, "MEDIA_PUBLIC_BASE", None)
     if base:
-        return f"{base.rstrip('/')}/{quote(key)}"
+        url = f"{base.rstrip('/')}/{quote(key)}"
+    else:
+        try:
+            url = default_storage.url(key)
+        except Exception:
+            return None
 
-    try:
-        return default_storage.url(key)
-    except Exception:
-        return None
+    # Add cache-busting timestamp if provided
+    if timestamp and url:
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}v={timestamp}"
+
+    return url

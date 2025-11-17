@@ -59,16 +59,21 @@ class StudentReadSerializer(serializers.ModelSerializer):
             "bank_name",
             "bank_account_number",
             "created_at",
+            "updated_at",
             "current_status",
             "current_course_class",
             "current_course_class_name",
         ]
-        read_only_fields = ["spin", "created_at", "photo_url", "current_status", "current_course_class", "current_course_class_name"]
+        read_only_fields = ["spin", "created_at", "updated_at", "photo_url", "current_status", "current_course_class", "current_course_class_name"]
 
     def get_photo_url(self, obj):
         f = getattr(obj, "photo", None)
         key = getattr(f, "name", None) if f and f.name else None
-        return public_media_url(key, obj.institute_id)
+        # Convert updated_at to Unix timestamp for cache busting
+        timestamp = None
+        if hasattr(obj, "updated_at") and obj.updated_at:
+            timestamp = str(int(obj.updated_at.timestamp()))
+        return public_media_url(key, obj.institute_id, timestamp)
 
     def get_current_status(self, obj):
         """

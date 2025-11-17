@@ -53,7 +53,7 @@ class CourseClass(models.Model):
         max_digits=12, decimal_places=2, null=True, blank=True
     )  # currency via institute policy
     certificate_type = models.CharField(
-        max_length=64, blank=True
+        max_length=64, blank=True, null=True
     )  # or FK to LUT_CertificateType later
     credits = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     hours_per_term = models.PositiveIntegerField(null=True, blank=True)

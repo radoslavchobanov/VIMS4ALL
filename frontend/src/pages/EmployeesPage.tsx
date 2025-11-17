@@ -15,12 +15,15 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  CircularProgress,
 } from "@mui/material";
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   ManageAccounts as ManageAccountsIcon,
+  Email as EmailIcon,
+  VpnKey as VpnKeyIcon,
 } from "@mui/icons-material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { api } from "../lib/apiClient";
@@ -1319,40 +1322,56 @@ function AccountDialog({
   onChanged: (msg: string) => void;
   onError: (m: string) => void;
 }) {
-  const [mode, setMode] = useState<"email" | "custom">("email");
+  const [showCustomForm, setShowCustomForm] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [creatingCustom, setCreatingCustom] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setMode("email");
+      setShowCustomForm(false);
       setUsername("");
       setPassword("");
+      setSendingEmail(false);
+      setCreatingCustom(false);
     }
   }, [open]);
 
-  async function createAccount() {
+  async function createViaEmail() {
     try {
-      if (mode === "email") {
-        if (!email) return onError("This employee has no email.");
-        await api.post(EMPLOYEE_ACCOUNT_ENDPOINT(employeeId), {
-          mode: "email",
-        });
-        onChanged("Account created and credentials emailed.");
-      } else {
-        if (!username || !password)
-          return onError("Username and password are required.");
-        await api.post(EMPLOYEE_ACCOUNT_ENDPOINT(employeeId), {
-          mode: "custom",
-          username,
-          password,
-        });
-        onChanged("Account created.");
-      }
+      if (!email) return onError("This employee has no email.");
+      setSendingEmail(true);
+      await api.post(EMPLOYEE_ACCOUNT_ENDPOINT(employeeId), {
+        mode: "email",
+      });
+      onChanged("Account created and credentials emailed.");
     } catch (e: any) {
       onError(
         e?.response?.data?.detail ?? e?.message ?? "Account creation failed."
       );
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
+  async function createCustomAccount() {
+    try {
+      if (!username || !password)
+        return onError("Username and password are required.");
+      setCreatingCustom(true);
+      await api.post(EMPLOYEE_ACCOUNT_ENDPOINT(employeeId), {
+        mode: "custom",
+        username,
+        password,
+      });
+      onChanged("Account created with custom credentials.");
+    } catch (e: any) {
+      onError(
+        e?.response?.data?.detail ?? e?.message ?? "Account creation failed."
+      );
+    } finally {
+      setCreatingCustom(false);
     }
   }
 
@@ -1373,80 +1392,148 @@ function AccountDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Manage account</DialogTitle>
-      <DialogContent dividers>
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+      <DialogTitle>
+        Manage Account
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           {fullName}
         </Typography>
+      </DialogTitle>
+      <DialogContent dividers sx={{ py: 3 }}>
+        {haveAccount ? (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            This employee already has a system account.
+          </Alert>
+        ) : (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            No system account exists for this employee.
+          </Alert>
+        )}
 
-        <Box sx={{ display: "grid", gap: 2 }}>
-          <Box>
-            <Typography variant="body2" sx={{ mb: 1 }}>
+        {!haveAccount && !showCustomForm && (
+          <Box sx={{ display: "grid", gap: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
               Create account:
             </Typography>
-            <Box sx={{ display: "flex", gap: 2 }}>
-              <Button
-                variant={mode === "email" ? "contained" : "outlined"}
-                onClick={() => setMode("email")}
-              >
-                Send an email
-              </Button>
-              <Button
-                variant={mode === "custom" ? "contained" : "outlined"}
-                onClick={() => setMode("custom")}
-              >
-                Create custom
-              </Button>
-            </Box>
+
+            {/* Email option */}
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 2,
+                opacity: email ? 1 : 0.5,
+              }}
+            >
+              <EmailIcon color={email ? "primary" : "disabled"} sx={{ mt: 0.5 }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Send credentials via email
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  {email
+                    ? `An email will be sent to ${email} with login credentials.`
+                    : "This employee has no email set."}
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={sendingEmail ? <CircularProgress size={16} /> : <EmailIcon />}
+                  onClick={createViaEmail}
+                  disabled={!email || sendingEmail}
+                  sx={{ mt: 1 }}
+                >
+                  {sendingEmail ? "Sending..." : "Send Email"}
+                </Button>
+              </Box>
+            </Paper>
+
+            {/* Custom option */}
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 2,
+              }}
+            >
+              <VpnKeyIcon color="primary" sx={{ mt: 0.5 }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Create with custom credentials
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Manually set username and password for this employee.
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<VpnKeyIcon />}
+                  onClick={() => setShowCustomForm(true)}
+                  sx={{ mt: 1 }}
+                >
+                  Set Custom Credentials
+                </Button>
+              </Box>
+            </Paper>
           </Box>
+        )}
 
-          {mode === "email" && (
-            <Alert severity={email ? "info" : "warning"}>
-              {email
-                ? `An email will be sent to ${email} with username=${email} and a random password.`
-                : "This employee has no email set. You cannot use 'Send an email'."}
-            </Alert>
-          )}
-
-          {mode === "custom" && (
-            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr" }}>
+        {!haveAccount && showCustomForm && (
+          <Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+              <VpnKeyIcon color="primary" />
+              <Typography variant="subtitle2">
+                Custom Credentials
+              </Typography>
+            </Box>
+            <Box sx={{ display: "grid", gap: 2 }}>
               <TextField
                 label="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                fullWidth
+                autoFocus
               />
               <TextField
                 label="Password"
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                fullWidth
               />
+              <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+                <Button onClick={() => setShowCustomForm(false)} disabled={creatingCustom}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={createCustomAccount}
+                  disabled={!username || !password || creatingCustom}
+                  startIcon={creatingCustom ? <CircularProgress size={16} /> : undefined}
+                >
+                  {creatingCustom ? "Creating..." : "Create Account"}
+                </Button>
+              </Box>
             </Box>
-          )}
-        </Box>
+          </Box>
+        )}
       </DialogContent>
-      <DialogActions sx={{ justifyContent: "space-between" }}>
-        <Box>
-          <Button onClick={onClose}>Close</Button>
-        </Box>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Button
-            variant="contained"
-            onClick={createAccount}
-            disabled={haveAccount}
-          >
-            Create
-          </Button>
+      <DialogActions sx={{ justifyContent: "space-between", px: 3, py: 2 }}>
+        <Button onClick={onClose}>Close</Button>
+        {haveAccount && (
           <Button
             color="error"
             variant="outlined"
             onClick={resetAccount}
-            disabled={!haveAccount}
           >
-            Reset account
+            Reset Account
           </Button>
-        </Box>
+        )}
       </DialogActions>
     </Dialog>
   );
