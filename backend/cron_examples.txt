@@ -1,0 +1,44 @@
+# Django Management Command Cron Examples
+# ==========================================
+
+# Close exited employee accounts daily at 1:00 AM
+# This deactivates system accounts for employees whose exit_date has arrived
+0 1 * * * cd /path/to/backend/src && /path/to/venv/bin/python manage.py close_exited_accounts >> /var/log/vims/close_accounts.log 2>&1
+
+# Example with docker-compose (if using Docker):
+0 1 * * * cd /path/to/project && docker-compose exec -T backend python manage.py close_exited_accounts >> /var/log/vims/close_accounts.log 2>&1
+
+# Example with Make command (if configured):
+0 1 * * * cd /path/to/project && make manage ARGS="close_exited_accounts" >> /var/log/vims/close_accounts.log 2>&1
+
+# Dry run to test (runs every day at 9 AM):
+0 9 * * * cd /path/to/backend/src && /path/to/venv/bin/python manage.py close_exited_accounts --dry-run >> /var/log/vims/close_accounts_dryrun.log 2>&1
+
+
+# Alternative: Using systemd timers
+# ==================================
+# Create /etc/systemd/system/close-exited-accounts.service:
+#
+# [Unit]
+# Description=Close exited employee accounts
+#
+# [Service]
+# Type=oneshot
+# User=www-data
+# WorkingDirectory=/path/to/backend/src
+# ExecStart=/path/to/venv/bin/python manage.py close_exited_accounts
+#
+# Then create /etc/systemd/system/close-exited-accounts.timer:
+#
+# [Unit]
+# Description=Run close exited accounts daily
+#
+# [Timer]
+# OnCalendar=daily
+# OnCalendar=01:00
+# Persistent=true
+#
+# [Install]
+# WantedBy=timers.target
+#
+# Enable with: systemctl enable --now close-exited-accounts.timer

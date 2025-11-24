@@ -235,3 +235,67 @@ def reset_employee_account(*, employee: Employee) -> None:
 
     # Clean up only after unlinking
     user.delete()
+
+
+def close_exited_employee_accounts() -> dict:
+    """
+    Close (deactivate) accounts for employees whose exit_date has arrived or passed.
+    This should run automatically via cron/scheduled task.
+
+    Returns:
+        dict with counts: {
+            'processed': int,  # employees checked
+            'closed': int,     # accounts deactivated
+            'skipped': int,    # already inactive or no account
+            'errors': list     # any errors encountered
+        }
+    """
+    from django.utils import timezone
+
+    today = timezone.now().date()
+    result = {
+        'processed': 0,
+        'closed': 0,
+        'skipped': 0,
+        'errors': []
+    }
+
+    # Find employees with exit_date <= today who have active system accounts
+    exited_employees = Employee.all_objects.filter(
+        exit_date__lte=today,
+        system_user__isnull=False,
+        system_user__is_active=True
+    ).select_related('system_user')
+
+    for employee in exited_employees:
+        result['processed'] += 1
+
+        try:
+            user = employee.system_user
+            if not user:
+                result['skipped'] += 1
+                continue
+
+            if not user.is_active:
+                result['skipped'] += 1
+                continue
+
+            # Don't deactivate superusers automatically
+            if user.is_superuser:
+                result['skipped'] += 1
+                result['errors'].append(
+                    f"Skipped superuser account for {employee.epin} - {employee.first_name} {employee.last_name}"
+                )
+                continue
+
+            # Deactivate the account
+            user.is_active = False
+            user.save(update_fields=['is_active'])
+            result['closed'] += 1
+
+        except Exception as e:
+            result['errors'].append(
+                f"Error processing {employee.epin}: {str(e)}"
+            )
+
+    return result

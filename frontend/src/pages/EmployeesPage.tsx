@@ -242,6 +242,10 @@ export default function EmployeesPage() {
           pageSizeOptions={[25, 50, 100]}
           onRowClick={(params) => openEditById(params.row.id)}
           sx={{
+            fontSize: "16px",
+            "& .MuiDataGrid-columnHeaders": {
+              fontSize: "16px",
+            },
             "& .MuiDataGrid-row:hover": {
               backgroundColor: "rgba(21, 101, 192, 0.08)",
               cursor: "pointer",
@@ -821,18 +825,17 @@ function EmployeeDependentsTab({
 
   return (
     <Box sx={{ mt: 1 }}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setEdit(null);
-            setOpenEditor(true);
-          }}
-        >
-          Add dependent
-        </Button>
-      </Box>
+      <Button
+        variant="contained"
+        startIcon={<AddIcon />}
+        onClick={() => {
+          setEdit(null);
+          setOpenEditor(true);
+        }}
+        sx={{ mb: 1 }}
+      >
+        Add dependent
+      </Button>
 
       <DataGrid<Dep>
         autoHeight

@@ -1194,18 +1194,17 @@ function StudentCustodiansTab({
 
   return (
     <Box sx={{ mt: 1 }}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setEdit(null);
-            setOpenEditor(true);
-          }}
-        >
-          Add custodian
-        </Button>
-      </Box>
+      <Button
+        variant="contained"
+        startIcon={<AddIcon />}
+        onClick={() => {
+          setEdit(null);
+          setOpenEditor(true);
+        }}
+        sx={{ mb: 1 }}
+      >
+        Add custodian
+      </Button>
 
       <DataGrid
         autoHeight
@@ -1740,16 +1739,14 @@ function StudentStatusTab({
 
   return (
     <Box sx={{ mt: 1 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-        <Typography variant="subtitle1">Status History</Typography>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => setAdding((s) => !s)}
-        >
-          {adding ? "Cancel" : "Add status"}
-        </Button>
-      </Box>
+      <Button
+        variant={adding ? "outlined" : "contained"}
+        startIcon={<AddIcon />}
+        onClick={() => setAdding((s) => !s)}
+        sx={{ mb: 1 }}
+      >
+        {adding ? "Cancel" : "Add status"}
+      </Button>
 
       {adding && (
         <Box

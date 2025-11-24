@@ -203,6 +203,10 @@ export default function CoursesPage() {
           pageSizeOptions={[25, 50, 100]}
           onRowClick={(params) => openEditById((params.row as Row).id)}
           sx={{
+            fontSize: "16px",
+            "& .MuiDataGrid-columnHeaders": {
+              fontSize: "16px",
+            },
             "& .MuiDataGrid-row:hover": {
               backgroundColor: "rgba(21, 101, 192, 0.08)",
               cursor: "pointer",
@@ -512,6 +516,10 @@ function CourseClassesTab({
             setEditorOpen(true);
           }}
           sx={{
+            fontSize: "16px",
+            "& .MuiDataGrid-columnHeaders": {
+              fontSize: "16px",
+            },
             "& .MuiDataGrid-row:hover": {
               backgroundColor: "rgba(21, 101, 192, 0.08)",
               cursor: "pointer",
@@ -884,6 +892,10 @@ function InstructorsManagerDialog({
             loading={loading}
             disableRowSelectionOnClick
             sx={{
+              fontSize: "16px",
+              "& .MuiDataGrid-columnHeaders": {
+                fontSize: "16px",
+              },
               "& .MuiDataGrid-row:hover": {
                 backgroundColor: "rgba(21, 101, 192, 0.08)",
                 cursor: "pointer",
