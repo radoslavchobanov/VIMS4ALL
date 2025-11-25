@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { ErrorNotificationProvider } from "./contexts/ErrorNotificationContext";
 import AppChrome from "./ui/AppChrome";
 import StudentsPage from "./pages/StudentsPage";
 import SuperuserPage from "./pages/SuperuserPage";
@@ -139,9 +140,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <ErrorNotificationProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </ErrorNotificationProvider>
     </AuthProvider>
   );
 }

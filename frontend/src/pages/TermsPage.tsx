@@ -14,6 +14,8 @@ import {
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import type { AxiosError } from "axios";
 import { api } from "../lib/apiClient";
+import { parseDrfErrors } from "../lib/errorUtils";
+import { useErrorNotification } from "../contexts/ErrorNotificationContext";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { TERMS_ENDPOINT } from "../lib/endpoints";
 import type { components } from "../api/__generated__/vims-types";
@@ -33,6 +35,7 @@ type AcademicTermWrite = {
 };
 
 export default function TermsPage() {
+  const { showError } = useErrorNotification();
   const [rows, setRows] = useState<AcademicTerm[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -131,7 +134,7 @@ export default function TermsPage() {
           await load();
           setToast({ severity: "success", msg: "Term updated" });
         }}
-        onError={(m) => setToast({ severity: "error", msg: m })}
+        onError={showError}
       />
 
       {toast ? (
@@ -168,7 +171,7 @@ function TermForm({
   onClose: () => void;
   onCreated: () => void;
   onUpdated: () => void;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   const mode: "create" | "edit" = initial ? "edit" : "create";
   const [tab, setTab] = useState(0);

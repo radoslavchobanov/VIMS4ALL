@@ -183,6 +183,16 @@ class EmployeeCareer(InstituteScopedModel):
 
     notes = models.TextField(blank=True)
 
+    # Track who created this career assignment
+    created_by = models.ForeignKey(
+        "employees.Employee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_career_assignments",
+        help_text="Employee who created this career assignment"
+    )
+
     class Meta:
         ordering = ["-start_date", "-id"]
         constraints = [

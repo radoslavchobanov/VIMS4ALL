@@ -196,3 +196,91 @@ def check_and_send_term_welcomes():
         for email in recipients:
             if email:  # Only send if email is set
                 send_term_start_welcome(term, email)
+
+
+def send_low_term_count_alert(institute, recipient_email: str) -> bool:
+    """
+    Send alert email when only 1 future term is left in the database.
+
+    Args:
+        institute: The institute that needs more terms
+        recipient_email: Email address of the recipient (director/registrar)
+
+    Returns:
+        True if email was sent successfully, False otherwise
+    """
+    subject = "Action Required: Low Term Count in VIMS4ALL"
+
+    message = """
+Dear institute management team,
+
+There is only one future term left in your VIMS4ALL database. To ensure proper function, please add additional terms.
+
+Your VIMS4ALL support
+    """.strip()
+
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            fail_silently=False,
+        )
+        return True
+    except Exception as e:
+        print(f"Failed to send low term count alert for {institute.name}: {e}")
+        return False
+
+
+def check_and_send_low_term_alerts():
+    """
+    Check all institutes and send weekly alerts when only 1 future term is left.
+    This should be called by a scheduled task (e.g., daily cron job).
+    """
+    from apps.accounts.models import User
+    from apps.institutes.models import Institute
+    from .models import LowTermCountAlert
+    from django.db.models import Q
+
+    today = timezone.now().date()
+
+    # Check each institute
+    for institute in Institute.objects.all():
+        # Count future terms (terms that haven't ended yet)
+        future_terms_count = AcademicTerm.objects.filter(
+            institute=institute,
+            end_date__gte=today
+        ).count()
+
+        # Get or create alert tracking record
+        alert_tracker, created = LowTermCountAlert.objects.get_or_create(
+            institute=institute
+        )
+
+        # Check if we should send an alert
+        if alert_tracker.should_send_alert(future_terms_count):
+            # Find directors and registrars for this institute
+            recipients = User.objects.filter(
+                institute=institute,
+                is_active=True
+            ).filter(
+                Q(employee__function_code__in=['director', 'registrar'])
+            ).values_list('email', flat=True)
+
+            # Send email to each recipient
+            emails_sent = 0
+            for email in recipients:
+                if email:  # Only send if email is set
+                    if send_low_term_count_alert(institute, email):
+                        emails_sent += 1
+
+            # Update tracker if at least one email was sent
+            if emails_sent > 0:
+                alert_tracker.last_alert_sent_at = timezone.now()
+                alert_tracker.future_terms_count_at_last_alert = future_terms_count
+                alert_tracker.save(update_fields=[
+                    "last_alert_sent_at",
+                    "future_terms_count_at_last_alert",
+                    "updated_at"
+                ])

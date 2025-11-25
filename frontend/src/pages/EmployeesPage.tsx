@@ -28,6 +28,8 @@ import {
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { api } from "../lib/apiClient";
 import type { components } from "../api/__generated__/vims-types";
+import { parseDrfErrors } from "../lib/errorUtils";
+import { useErrorNotification } from "../contexts/ErrorNotificationContext";
 
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import { PhotoBox } from "../components/PhotoBox";
@@ -93,6 +95,7 @@ type Row = {
 
 /* ================== Page ================== */
 export default function EmployeesPage() {
+  const { showError } = useErrorNotification();
   const [list, setList] = useState<EmployeeRead[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -268,7 +271,7 @@ export default function EmployeesPage() {
           load();
           setToast({ severity: "success", msg: "Employee updated" });
         }}
-        onError={(m) => setToast({ severity: "error", msg: m })}
+        onError={showError}
       />
 
       {toast ? (
@@ -300,7 +303,7 @@ export default function EmployeesPage() {
             await load();
             setToast({ severity: "success", msg });
           }}
-          onError={(m) => setToast({ severity: "error", msg: m })}
+          onError={showError}
         />
       ) : null}
     </Paper>
@@ -321,7 +324,7 @@ function EmployeesForm({
   onClose: () => void;
   onCreated: () => void;
   onUpdated: () => void;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   const mode: "create" | "edit" = initial ? "edit" : "create";
   const choices = useChoices(EMPLOYEES_ENDPOINT, ["gender", "family_state"]);
@@ -446,6 +449,7 @@ function EmployeesForm({
       onSuccess={mode === "create" ? onCreated : onUpdated}
       onError={onError}
       maxWidth="lg"
+      hideSubmitButton={tab === 1 || tab === 2} // Hide submit button on Dependents and Career tabs
       sidebarSlot={
         <PhotoBox
           mode={mode}
@@ -744,7 +748,7 @@ function EmployeeDependentsTab({
   onError,
 }: {
   employeeId: number | string;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   type Dep = {
     id: number | string;
@@ -812,7 +816,8 @@ function EmployeeDependentsTab({
                 await api.delete(`${EMPLOYEE_DEPENDENTS_ENDPOINT}${p.row.id}/`);
                 await load();
               } catch (e: any) {
-                onError(e?.message ?? "Delete failed");
+                const errors = parseDrfErrors(e);
+                onError(errors);
               }
             }}
           >
@@ -880,7 +885,7 @@ function EmployeeDependentEditorDialog({
   initial: any | null;
   onClose: () => void;
   onSaved: () => void;
-  onError: (m: string) => void;
+  onError: (m: string | string[]) => void;
 }) {
   const mode: "create" | "edit" = initial ? "edit" : "create";
   const [form, setForm] = useState<any>({
@@ -929,7 +934,8 @@ function EmployeeDependentEditorDialog({
       }
       onSaved();
     } catch (e: any) {
-      onError(e?.message ?? "Save failed");
+      const errors = parseDrfErrors(e);
+      onError(errors);
     }
   };
 
@@ -1028,12 +1034,13 @@ function EmployeeCareerTab({
   onError,
 }: {
   employeeId: number | string;
-  onError: (m: string) => void;
+  onError: (m: string | string[]) => void;
 }) {
   type Career = {
     id: number | string;
     employee: number | string;
     function: number | string;
+    function_name?: string;
     start_date: string;
     total_salary: string | null;
     gross_salary: string | null;
@@ -1042,6 +1049,8 @@ function EmployeeCareerTab({
     employee_nssf: string | null;
     institute_nssf: string | null;
     notes: string;
+    created_by_name?: string;
+    created_by_function?: string;
   };
   type EmpFunction = { id: number | string; name: string };
 
@@ -1054,6 +1063,11 @@ function EmployeeCareerTab({
 
   const empId = String(employeeId);
   const today = () => new Date().toISOString().slice(0, 10);
+  const oneMonthFromToday = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 30); // Add 30 days (approximately 1 month)
+    return date.toISOString().slice(0, 10);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -1085,7 +1099,7 @@ function EmployeeCareerTab({
       id: "" as any,
       employee: empId,
       function: "" as any,
-      start_date: today(),
+      start_date: oneMonthFromToday(), // Set to 1 month from today
       total_salary: null,
       gross_salary: null,
       take_home_salary: null,
@@ -1135,6 +1149,7 @@ function EmployeeCareerTab({
       flex: 1,
       minWidth: 160,
       valueGetter: (_v, row) =>
+        row.function_name ??
         funcs.find((f) => String(f.id) === String(row.function))?.name ??
         row.function,
     },
@@ -1145,6 +1160,20 @@ function EmployeeCareerTab({
     { field: "employee_nssf", headerName: "Emp NSSF", width: 120 },
     { field: "institute_nssf", headerName: "Inst NSSF", width: 120 },
     { field: "notes", headerName: "Notes", flex: 1, minWidth: 160 },
+    {
+      field: "created_by_name",
+      headerName: "Creator",
+      flex: 1,
+      minWidth: 150,
+      valueGetter: (_v, row) => row.created_by_name ?? "",
+    },
+    {
+      field: "created_by_function",
+      headerName: "Creator Function",
+      flex: 1,
+      minWidth: 150,
+      valueGetter: (_v, row) => row.created_by_function ?? "",
+    },
     {
       field: "actions",
       headerName: "",
@@ -1221,6 +1250,9 @@ function EmployeeCareerTab({
                 )
               }
               InputLabelProps={{ shrink: true }}
+              inputProps={{
+                min: oneMonthFromToday(), // Minimum 1 month from today
+              }}
               required
             />
 
@@ -1323,7 +1355,7 @@ function AccountDialog({
   haveAccount: boolean;
   onClose: () => void;
   onChanged: (msg: string) => void;
-  onError: (m: string) => void;
+  onError: (m: string | string[]) => void;
 }) {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [username, setUsername] = useState("");
@@ -1350,9 +1382,8 @@ function AccountDialog({
       });
       onChanged("Account created and credentials emailed.");
     } catch (e: any) {
-      onError(
-        e?.response?.data?.detail ?? e?.message ?? "Account creation failed."
-      );
+      const errors = parseDrfErrors(e);
+      onError(errors);
     } finally {
       setSendingEmail(false);
     }
@@ -1370,9 +1401,8 @@ function AccountDialog({
       });
       onChanged("Account created with custom credentials.");
     } catch (e: any) {
-      onError(
-        e?.response?.data?.detail ?? e?.message ?? "Account creation failed."
-      );
+      const errors = parseDrfErrors(e);
+      onError(errors);
     } finally {
       setCreatingCustom(false);
     }
@@ -1389,7 +1419,8 @@ function AccountDialog({
       await api.delete(EMPLOYEE_ACCOUNT_ENDPOINT(employeeId));
       onChanged("Account reset.");
     } catch (e: any) {
-      onError(e?.response?.data?.detail ?? e?.message ?? "Reset failed.");
+      const errors = parseDrfErrors(e);
+      onError(errors);
     }
   }
 
@@ -1429,7 +1460,10 @@ function AccountDialog({
                 opacity: email ? 1 : 0.5,
               }}
             >
-              <EmailIcon color={email ? "primary" : "disabled"} sx={{ mt: 0.5 }} />
+              <EmailIcon
+                color={email ? "primary" : "disabled"}
+                sx={{ mt: 0.5 }}
+              />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="subtitle2" gutterBottom>
                   Send credentials via email
@@ -1442,7 +1476,13 @@ function AccountDialog({
                 <Button
                   variant="contained"
                   size="small"
-                  startIcon={sendingEmail ? <CircularProgress size={16} /> : <EmailIcon />}
+                  startIcon={
+                    sendingEmail ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <EmailIcon />
+                    )
+                  }
                   onClick={createViaEmail}
                   disabled={!email || sendingEmail}
                   sx={{ mt: 1 }}
@@ -1488,9 +1528,7 @@ function AccountDialog({
           <Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
               <VpnKeyIcon color="primary" />
-              <Typography variant="subtitle2">
-                Custom Credentials
-              </Typography>
+              <Typography variant="subtitle2">Custom Credentials</Typography>
             </Box>
             <Box sx={{ display: "grid", gap: 2 }}>
               <TextField
@@ -1510,14 +1548,19 @@ function AccountDialog({
                 fullWidth
               />
               <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-                <Button onClick={() => setShowCustomForm(false)} disabled={creatingCustom}>
+                <Button
+                  onClick={() => setShowCustomForm(false)}
+                  disabled={creatingCustom}
+                >
                   Cancel
                 </Button>
                 <Button
                   variant="contained"
                   onClick={createCustomAccount}
                   disabled={!username || !password || creatingCustom}
-                  startIcon={creatingCustom ? <CircularProgress size={16} /> : undefined}
+                  startIcon={
+                    creatingCustom ? <CircularProgress size={16} /> : undefined
+                  }
                 >
                   {creatingCustom ? "Creating..." : "Create Account"}
                 </Button>
@@ -1529,11 +1572,7 @@ function AccountDialog({
       <DialogActions sx={{ justifyContent: "space-between", px: 3, py: 2 }}>
         <Button onClick={onClose}>Close</Button>
         {haveAccount && (
-          <Button
-            color="error"
-            variant="outlined"
-            onClick={resetAccount}
-          >
+          <Button color="error" variant="outlined" onClick={resetAccount}>
             Reset Account
           </Button>
         )}

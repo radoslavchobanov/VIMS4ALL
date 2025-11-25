@@ -23,6 +23,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 
 import { api } from "../lib/apiClient";
 import type { components } from "../api/__generated__/vims-types";
+import { parseDrfErrors } from "../lib/errorUtils";
+import { useErrorNotification } from "../contexts/ErrorNotificationContext";
 import { EntityFormDialog } from "../components/EntityFormDialog";
 import {
   COURSE_CLASSES_COLLECTION_ENDPOINT, // e.g. "/api/course-classes/"
@@ -127,6 +129,7 @@ const columns: GridColDef<Row>[] = [
 
 /* ================== Page ================== */
 export default function CoursesPage() {
+  const { showError } = useErrorNotification();
   const [list, setList] = useState<Course[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -229,7 +232,7 @@ export default function CoursesPage() {
           load();
           setToast({ severity: "success", msg: "Course updated" });
         }}
-        onError={(m) => setToast({ severity: "error", msg: m })}
+        onError={showError}
       />
 
       {toast ? (
@@ -266,7 +269,7 @@ function CoursesForm({
   onClose: () => void;
   onCreated: () => void;
   onUpdated: () => void;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   const mode: "create" | "edit" = initial ? "edit" : "create";
   const [tab, setTab] = useState(0);
@@ -412,7 +415,7 @@ function CourseClassesTab({
   onError,
 }: {
   courseId: number;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   const [rows, setRows] = useState<CourseClass[]>([]);
   const [loading, setLoading] = useState(false);
@@ -567,7 +570,7 @@ function CourseClassEditorDialog({
   initial: CourseClass;
   onClose: () => void;
   onSaved: () => void;
-  onError: (m: string) => void;
+  onError: (m: string | string[]) => void;
 }) {
   const [form, setForm] = useState<CourseClassPatch>({
     fee_amount: initial.fee_amount ?? "",
@@ -604,7 +607,8 @@ function CourseClassEditorDialog({
       );
       onSaved();
     } catch (e: any) {
-      onError(e?.message ?? "Save failed");
+      const errors = parseDrfErrors(e);
+      onError(errors);
     }
   };
 

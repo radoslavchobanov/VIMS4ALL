@@ -45,6 +45,10 @@ def create_employee_account_custom(
     if not username or not password:
         raise ValueError("username and password are required.")
 
+    # Check if username already exists
+    if User.objects.filter(username=username).exists():
+        raise ValueError(f"Username '{username}' already exists. Please choose a different username.")
+
     # Enforce same institute
     iid = employee.institute_id
     user = User.objects.create_user(
@@ -90,6 +94,11 @@ def create_employee_account_send_email(*, employee: Employee) -> CreateAccountRe
         raise ValueError("Employee has no email to send credentials to.")
 
     username = emp.email.strip().lower()
+
+    # Check if username already exists
+    if User.objects.filter(username=username).exists():
+        raise ValueError(f"Username '{username}' already exists. The employee's email is already in use as a username.")
+
     password = _random_password(12)
 
     # Create user
@@ -153,6 +162,10 @@ def create_employee_account_invite(*, employee: Employee) -> CreateAccountResult
         raise ValueError("Employee has no email to send invitation to.")
 
     username = emp.email.strip().lower()
+
+    # Check if username already exists
+    if User.objects.filter(username=username).exists():
+        raise ValueError(f"Username '{username}' already exists. The employee's email is already in use as a username.")
 
     user = User(
         username=username,

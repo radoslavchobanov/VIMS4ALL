@@ -136,6 +136,9 @@ class EmployeeCareerSerializer(serializers.ModelSerializer):
     function = serializers.PrimaryKeyRelatedField(
         queryset=EmployeeFunction.all_objects.none()
     )
+    function_name = serializers.CharField(source="function.name", read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+    created_by_function = serializers.SerializerMethodField()
 
     class Meta:
         model = EmployeeCareer
@@ -143,6 +146,7 @@ class EmployeeCareerSerializer(serializers.ModelSerializer):
             "id",
             "employee",
             "function",
+            "function_name",
             "start_date",
             "total_salary",
             "gross_salary",
@@ -151,7 +155,41 @@ class EmployeeCareerSerializer(serializers.ModelSerializer):
             "employee_nssf",
             "institute_nssf",
             "notes",
+            "created_by_name",
+            "created_by_function",
         ]
+        read_only_fields = ["created_by", "function_name", "created_by_name", "created_by_function"]
+
+    def get_created_by_name(self, obj):
+        """Get the full name of the employee who created this career assignment."""
+        if not obj.created_by:
+            return None
+        return f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
+
+    def get_created_by_function(self, obj):
+        """Get the current function/role of the employee who created this career assignment."""
+        if not obj.created_by:
+            return None
+
+        from django.utils import timezone
+
+        # Get the most recent function assignment for this employee
+        today = timezone.now().date()
+        current_function = (
+            EmployeeCareer.all_objects
+            .filter(
+                employee=obj.created_by,
+                start_date__lte=today
+            )
+            .order_by("-start_date", "-id")
+            .select_related("function")
+            .first()
+        )
+
+        if current_function and current_function.function:
+            return current_function.function.name
+
+        return None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -165,6 +203,22 @@ class EmployeeCareerSerializer(serializers.ModelSerializer):
             self.fields["function"].queryset = EmployeeFunction.objects.all()
 
     def validate(self, data):
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Validate start_date: must be at least 1 month from today
+        start_date = data.get("start_date")
+        if start_date:
+            today = timezone.now().date()
+            one_month_from_today = today + timedelta(days=30)  # Approximately 1 month
+
+            if start_date < one_month_from_today:
+                raise serializers.ValidationError(
+                    {
+                        "start_date": f"Start date must be at least 1 month from today (minimum: {one_month_from_today.strftime('%Y-%m-%d')})."
+                    }
+                )
+
         # Double-check the selected function is in the union visible to employee's institute
         employee = data.get("employee")
         func = data.get("function")
@@ -175,6 +229,19 @@ class EmployeeCareerSerializer(serializers.ModelSerializer):
                     {"function": "Function is not available for this institute."}
                 )
         return data
+
+    def create(self, validated_data):
+        # Automatically set created_by from the current user's employee record
+        req = self.context.get("request")
+        if req and req.user:
+            try:
+                employee = Employee.all_objects.get(system_user=req.user)
+                validated_data["created_by"] = employee
+            except Employee.DoesNotExist:
+                # User doesn't have an associated employee record
+                pass
+
+        return super().create(validated_data)
 
 
 class EmployeeDependentSerializer(serializers.ModelSerializer):

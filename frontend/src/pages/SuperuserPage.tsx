@@ -243,7 +243,6 @@ function InstituteForm({
     registration_no: "",
     inst_nssf_no: "",
     inst_paye_no: "",
-    taxflag: 0 as any,
     directions_and_comments: "",
   });
 
@@ -264,7 +263,6 @@ function InstituteForm({
     registration_no: i.registration_no ?? "",
     inst_nssf_no: i.inst_nssf_no ?? "",
     inst_paye_no: i.inst_paye_no ?? "",
-    taxflag: (i as any).taxflag ?? 0,
     directions_and_comments: i.directions_and_comments ?? "",
   });
 
@@ -398,27 +396,29 @@ function InstituteGeneralTab({
           value={form.business_year_start ?? ""}
           onChange={(e) => {
             const start = e.target.value;
-            // optional convenience: auto-suggest end = start + 1y - 1d
-            let end = form.business_year_end ?? "";
+            // Auto-calculate end date as start + 1 year - 1 day
+            let end = "";
             if (start) {
-              const d = new Date(start);
-              if (!Number.isNaN(d.getTime())) {
-                const y = new Date(d);
-                y.setFullYear(y.getFullYear() + 1);
-                y.setDate(y.getDate() - 1);
-                end = y.toISOString().slice(0, 10);
+              const startDate = new Date(start + "T00:00:00");
+              if (!Number.isNaN(startDate.getTime())) {
+                const endDate = new Date(startDate);
+                endDate.setFullYear(endDate.getFullYear() + 1);
+                endDate.setDate(endDate.getDate() - 1);
+                end = endDate.toISOString().split("T")[0];
               }
             }
             setForm({ business_year_start: start, business_year_end: end });
           }}
           InputLabelProps={{ shrink: true }}
+          required
         />
         <TextField
           label="Business year end"
           type="date"
           value={form.business_year_end ?? ""}
-          onChange={(e) => setForm({ business_year_end: e.target.value })}
           InputLabelProps={{ shrink: true }}
+          disabled
+          helperText="Auto-calculated (start + 1 year - 1 day)"
         />
       </Box>
     </>
@@ -490,29 +490,11 @@ function InstituteRegistrationTab({
 }) {
   return (
     <>
-      <Box
-        sx={{
-          display: "grid",
-          gap: 2,
-          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-        }}
-      >
-        <TextField
-          label="Registration No."
-          value={form.registration_no ?? ""}
-          onChange={(e) => setForm({ registration_no: e.target.value })}
-        />
-        <TextField
-          select
-          label="Tax flag"
-          value={form.taxflag ?? 0}
-          onChange={(e) => setForm({ taxflag: Number(e.target.value) })}
-          helperText="0 or 1 (legacy compatible)"
-        >
-          <MenuItem value={0}>0</MenuItem>
-          <MenuItem value={1}>1</MenuItem>
-        </TextField>
-      </Box>
+      <TextField
+        label="Registration No."
+        value={form.registration_no ?? ""}
+        onChange={(e) => setForm({ registration_no: e.target.value })}
+      />
 
       <Box
         sx={{

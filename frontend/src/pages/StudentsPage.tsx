@@ -28,6 +28,8 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 
 import { api } from "../lib/apiClient";
 import type { components } from "../api/__generated__/vims-types";
+import { parseDrfErrors } from "../lib/errorUtils";
+import { useErrorNotification } from "../contexts/ErrorNotificationContext";
 
 // Shared building blocks you already have
 import { EntityFormDialog } from "../components/EntityFormDialog";
@@ -61,6 +63,7 @@ type Row = {
   family_name: string;
   current_status?: string | null;
   current_course_class_name?: string | null;
+  current_term_name?: string | null;
 };
 type Page<T> = {
   results: T[];
@@ -71,6 +74,13 @@ type Page<T> = {
 
 /* ================== DataGrid Columns ================== */
 const columns: GridColDef<Row>[] = [
+  {
+    field: "current_term_name",
+    headerName: "Term",
+    flex: 1,
+    minWidth: 160,
+    valueGetter: (_value, row: any) => row.current_term_name || "",
+  },
   { field: "spin", headerName: "SPIN", width: 160 },
   { field: "given_name", headerName: "Given name", flex: 1, minWidth: 140 },
   { field: "family_name", headerName: "Family name", flex: 1, minWidth: 140 },
@@ -94,6 +104,7 @@ const columns: GridColDef<Row>[] = [
 ============================================================================= */
 export default function StudentsPage() {
   const { user, hasFunctionCode } = useAuth();
+  const { showError } = useErrorNotification();
   const [list, setList] = useState<StudentRead[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,6 +141,7 @@ export default function StudentsPage() {
           family_name: s.last_name,
           current_status: s.current_status,
           current_course_class_name: s.current_course_class_name,
+          current_term_name: s.current_term_name,
         }))
       );
     } finally {
@@ -157,7 +169,10 @@ export default function StudentsPage() {
       if (!current) {
         const endedTerms = terms
           .filter((t: any) => t.end_date < today)
-          .sort((a: any, b: any) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.end_date).getTime() - new Date(a.end_date).getTime()
+          );
 
         if (endedTerms.length > 0) {
           current = endedTerms[0];
@@ -195,12 +210,14 @@ export default function StudentsPage() {
       setOpenMoveDialog(false);
       setToast({
         severity: "success",
-        msg: response.data.message || `Moved ${response.data.students_moved} students successfully.`,
+        msg:
+          response.data.message ||
+          `Moved ${response.data.students_moved} students successfully.`,
       });
       load(); // Refresh student list
     } catch (err: any) {
-      const errorMsg = err?.response?.data?.error || err?.message || "Failed to move students.";
-      setToast({ severity: "error", msg: errorMsg });
+      const errors = parseDrfErrors(err);
+      showError(errors);
     } finally {
       setMovingStudents(false);
     }
@@ -302,7 +319,7 @@ export default function StudentsPage() {
           load();
           setToast({ severity: "success", msg: "Student updated" });
         }}
-        onError={(m) => setToast({ severity: "error", msg: m })}
+        onError={showError}
       />
 
       <ImportStudentsDialog
@@ -319,7 +336,7 @@ export default function StudentsPage() {
                 : "Validation completed (no records created)",
           });
         }}
-        onError={(m) => setToast({ severity: "error", msg: m })}
+        onError={showError}
       />
 
       {/* Move Students Confirmation Dialog */}
@@ -330,9 +347,14 @@ export default function StudentsPage() {
         <DialogTitle>Move Students to Next Class</DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ mb: 2 }}>
-            This will automatically progress all active students to the next class level for the upcoming term.
+            This will automatically progress all active students to the next
+            class level for the upcoming term.
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 1, fontWeight: 600 }}
+          >
             Important:
           </Typography>
           <Box sx={{ pl: 2 }}>
@@ -406,7 +428,7 @@ function StudentsForm({
   onClose: () => void;
   onCreated: () => void;
   onUpdated: () => void;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   const mode: "create" | "edit" = initial ? "edit" : "create";
   const choices = useChoices(STUDENTS_ENDPOINT, ["gender", "marital_status"]);
@@ -515,6 +537,8 @@ function StudentsForm({
       onSubmit={onSubmit}
       onSuccess={mode === "create" ? onCreated : onUpdated}
       onError={onError}
+      maxWidth="lg"
+      hideSubmitButton={tab === 1 || tab === 2} // Hide submit button on Custodians and Status tabs
       sidebarSlot={
         <PhotoBox
           mode={mode}
@@ -598,7 +622,7 @@ export function ImportStudentsDialog({
   open: boolean;
   onClose: () => void;
   onImported: (summary: ImportSummary) => void;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -700,7 +724,8 @@ export function ImportStudentsDialog({
     } catch (e: any) {
       setBusy(false);
       setPhase("idle");
-      onError(e?.response?.data?.detail ?? e?.message ?? "Import failed");
+      const errors = parseDrfErrors(e);
+      onError(errors);
     }
   }
 
@@ -732,7 +757,8 @@ export function ImportStudentsDialog({
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      onError(e?.message ?? "Template download failed");
+      const errors = parseDrfErrors(e);
+      onError(errors);
     } finally {
       setDlBusy(false);
     }
@@ -1122,7 +1148,7 @@ function StudentCustodiansTab({
   onError,
 }: {
   studentId: number;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   const [rows, setRows] = useState<CustodianRead[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1179,7 +1205,8 @@ function StudentCustodiansTab({
                   );
                   await load();
                 } catch (e: any) {
-                  onError(e?.message ?? "Delete failed");
+                  const errors = parseDrfErrors(e);
+                  onError(errors);
                 }
               }}
             >
@@ -1249,7 +1276,7 @@ function CustodianEditorDialog({
   initial: CustodianRead | null;
   onClose: () => void;
   onSaved: () => void;
-  onError: (m: string) => void;
+  onError: (m: string | string[]) => void;
 }) {
   const mode: "create" | "edit" = initial ? "edit" : "create";
   const [form, setForm] = useState<CustodianWrite>({
@@ -1305,7 +1332,8 @@ function CustodianEditorDialog({
       }
       onSaved();
     } catch (e: any) {
-      onError(e?.message ?? "Save failed");
+      const errors = parseDrfErrors(e);
+      onError(errors);
     }
   };
 
@@ -1460,7 +1488,7 @@ function StudentStatusTab({
   onError,
 }: {
   studentId: number;
-  onError: (msg: string) => void;
+  onError: (msg: string | string[]) => void;
 }) {
   const [rows, setRows] = useState<StudentStatusRead[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1485,7 +1513,6 @@ function StudentStatusTab({
 
   // add-status form (no term now)
   const [adding, setAdding] = useState(false);
-  const [statusErrors, setStatusErrors] = useState<string[]>([]);
   const [form, setForm] = useState<{
     status: string;
     course_class: number | null;
@@ -1630,12 +1657,25 @@ function StudentStatusTab({
         (row as any).course_class ??
         "",
     },
-    { field: "note", headerName: "Note", flex: 1, minWidth: 200 },
     {
       field: "effective_at",
       headerName: "Effective at",
       flex: 1,
       minWidth: 160,
+    },
+    {
+      field: "created_by_name",
+      headerName: "Creator",
+      flex: 1,
+      minWidth: 150,
+      valueGetter: (_value, row) => (row as any).created_by_name ?? "",
+    },
+    {
+      field: "created_by_function",
+      headerName: "Creator Function",
+      flex: 1,
+      minWidth: 150,
+      valueGetter: (_value, row) => (row as any).created_by_function ?? "",
     },
   ];
 
@@ -1649,61 +1689,14 @@ function StudentStatusTab({
 
   const canSave = !!form.course_class && !!form.status && !allowedLoading;
 
-  // Helper to parse DRF errors
-  const parseDrfErrors = (err: any): string[] => {
-    const data = err?.response?.data;
-
-    if (typeof data === "string") return [data];
-    if (Array.isArray(data)) return data.map(String);
-
-    if (data && typeof data === "object") {
-      const errors: string[] = [];
-
-      if (data.detail) {
-        errors.push(String(data.detail));
-      }
-
-      for (const [field, value] of Object.entries(data)) {
-        if (field === "detail") continue;
-
-        const isGlobal = field === "__all__" || field === "non_field_errors";
-
-        if (Array.isArray(value)) {
-          value.forEach((msg: any) => {
-            errors.push(isGlobal ? String(msg) : `${field}: ${String(msg)}`);
-          });
-        } else if (typeof value === "string") {
-          errors.push(isGlobal ? value : `${field}: ${value}`);
-        } else if (value && typeof value === "object") {
-          for (const [nestedKey, nestedValue] of Object.entries(
-            value as Record<string, any>
-          )) {
-            if (Array.isArray(nestedValue)) {
-              nestedValue.forEach((msg: any) => {
-                errors.push(`${field}.${nestedKey}: ${String(msg)}`);
-              });
-            } else {
-              errors.push(`${field}.${nestedKey}: ${String(nestedValue)}`);
-            }
-          }
-        }
-      }
-
-      return errors.length ? errors : ["Validation failed."];
-    }
-
-    return [err?.message ?? "Status change failed"];
-  };
-
   const saveStatus = async () => {
-    setStatusErrors([]); // Clear previous errors
     try {
       if (!form.course_class) {
-        setStatusErrors(["Select a course class first."]);
+        onError("Select a course class first.");
         return;
       }
       if (!form.status) {
-        setStatusErrors(["Select a status."]);
+        onError("Select a status.");
         return;
       }
 
@@ -1720,7 +1713,6 @@ function StudentStatusTab({
       await api.post(STUDENT_STATUS_ENDPOINT, payload);
 
       setAdding(false);
-      setStatusErrors([]);
       setForm({
         status: "",
         course_class: null,
@@ -1732,8 +1724,7 @@ function StudentStatusTab({
       // allowed will be re-fetched by the rows effect if a class remains selected
     } catch (e: any) {
       const errors = parseDrfErrors(e);
-      setStatusErrors(errors);
-      onError(errors.join("; "));
+      onError(errors);
     }
   };
 
@@ -1758,36 +1749,6 @@ function StudentStatusTab({
             mb: 2,
           }}
         >
-          {/* Error Alert Box */}
-          {statusErrors.length > 0 && (
-            <Alert
-              severity="error"
-              variant="filled"
-              onClose={() => setStatusErrors([])}
-              sx={{
-                mb: 2,
-                "& .MuiAlert-message": {
-                  width: "100%",
-                },
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                Validation Error{statusErrors.length > 1 ? "s" : ""}
-              </Typography>
-              {statusErrors.length === 1 ? (
-                <Typography variant="body2">{statusErrors[0]}</Typography>
-              ) : (
-                <Box component="ul" sx={{ margin: 0, paddingLeft: 2 }}>
-                  {statusErrors.map((msg, idx) => (
-                    <li key={idx}>
-                      <Typography variant="body2">{msg}</Typography>
-                    </li>
-                  ))}
-                </Box>
-              )}
-            </Alert>
-          )}
-
           <Box
             sx={{
               display: "grid",
@@ -1848,14 +1809,9 @@ function StudentStatusTab({
                 setForm({ ...form, effective_at: e.target.value })
               }
               InputLabelProps={{ shrink: true }}
-            />
-
-            <TextField
-              label="Note"
-              value={form.note}
-              onChange={(e) => setForm({ ...form, note: e.target.value })}
-              multiline
-              minRows={2}
+              inputProps={{
+                min: new Date().toISOString().slice(0, 16), // Set minimum to current datetime
+              }}
             />
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -1869,7 +1825,6 @@ function StudentStatusTab({
               <Button
                 onClick={() => {
                   setAdding(false);
-                  setStatusErrors([]);
                 }}
               >
                 Cancel

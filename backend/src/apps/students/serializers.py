@@ -30,6 +30,7 @@ class StudentReadSerializer(serializers.ModelSerializer):
     current_status = serializers.SerializerMethodField()
     current_course_class = serializers.SerializerMethodField()
     current_course_class_name = serializers.SerializerMethodField()
+    current_term_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -63,8 +64,9 @@ class StudentReadSerializer(serializers.ModelSerializer):
             "current_status",
             "current_course_class",
             "current_course_class_name",
+            "current_term_name",
         ]
-        read_only_fields = ["spin", "created_at", "updated_at", "photo_url", "current_status", "current_course_class", "current_course_class_name"]
+        read_only_fields = ["spin", "created_at", "updated_at", "photo_url", "current_status", "current_course_class", "current_course_class_name", "current_term_name"]
 
     def get_photo_url(self, obj):
         f = getattr(obj, "photo", None)
@@ -154,6 +156,63 @@ class StudentReadSerializer(serializers.ModelSerializer):
         )
 
         return latest_status.course_class.name if latest_status and latest_status.course_class else None
+
+    def get_current_term_name(self, obj):
+        """
+        Get the term name for the current student status.
+        Logic: Based on the status and effective_at date:
+        - For active status: find term where effective_at falls within term dates
+        - For enquire/accepted status: find the next future term after effective_at
+        """
+        from apps.terms.models import AcademicTerm
+
+        # First try to get the latest active status
+        active_status = (
+            mgr(StudentStatus)
+            .filter(student=obj, is_active=True)
+            .order_by("-effective_at", "-id")
+            .first()
+        )
+
+        if not active_status:
+            # If no active status, get the latest status overall
+            active_status = (
+                mgr(StudentStatus)
+                .filter(student=obj)
+                .order_by("-effective_at", "-id")
+                .first()
+            )
+
+        if not active_status or not active_status.effective_at:
+            return None
+
+        status_code = active_status.status
+        effective_date = active_status.effective_at.date() if hasattr(active_status.effective_at, 'date') else active_status.effective_at
+
+        # For active students, find the term where effective_at falls within term dates
+        if status_code == Status.ACTIVE:
+            term = (
+                AcademicTerm.objects
+                .filter(
+                    institute_id=obj.institute_id,
+                    start_date__lte=effective_date,
+                    end_date__gte=effective_date
+                )
+                .first()
+            )
+            return term.name if term else None
+
+        # For enquire/accepted students, find the next future term after effective_at
+        if status_code in {Status.ENQUIRE, Status.ACCEPTED}:
+            next_term = (
+                AcademicTerm.objects
+                .filter(institute_id=obj.institute_id, start_date__gt=effective_date)
+                .order_by("start_date")
+                .first()
+            )
+            return next_term.name if next_term else None
+
+        return None
 
 
 class StudentWriteSerializer(serializers.ModelSerializer):
@@ -296,7 +355,7 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
             "note",
             "effective_at",
         ]
-        read_only_fields = ["is_active"]
+        read_only_fields = ["is_active", "created_by"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -317,12 +376,25 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
             )
 
     def validate(self, attrs):
+        from django.utils import timezone
+
         req = self.context["request"]
         iid = req.user.institute_id
         student = attrs["student"]
         cc = attrs["course_class"]
         new_status = attrs["status"]
         new_effective_at = attrs.get("effective_at")
+
+        # Validate effective_at: must not be in the past
+        if new_effective_at:
+            now = timezone.now()
+            # Allow some tolerance for timezone issues (5 minutes)
+            if new_effective_at < now - timezone.timedelta(minutes=5):
+                raise serializers.ValidationError(
+                    {
+                        "effective_at": "Effective date cannot be in the past."
+                    }
+                )
 
         # current (in this class)
         last = (
@@ -350,6 +422,21 @@ class StudentStatusWriteSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    def create(self, validated_data):
+        # Automatically set created_by from the current user's employee record
+        from apps.employees.models import Employee
+
+        req = self.context.get("request")
+        if req and req.user:
+            try:
+                employee = Employee.all_objects.get(system_user=req.user)
+                validated_data["created_by"] = employee
+            except Employee.DoesNotExist:
+                # User doesn't have an associated employee record
+                pass
+
+        return super().create(validated_data)
+
     def validate_status(self, value: str):
         v = (value or "").strip().lower()
         # normalize to enum value
@@ -371,6 +458,8 @@ class StudentStatusReadSerializer(serializers.ModelSerializer):
     course_class = CourseClassMinSerializer(read_only=True)
     class_name = serializers.CharField(source="course_class.name", read_only=True)
     term = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    created_by_function = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentStatus
@@ -384,7 +473,41 @@ class StudentStatusReadSerializer(serializers.ModelSerializer):
             "course_class",
             "class_name",
             "term",
+            "created_by_name",
+            "created_by_function",
         )
+
+    def get_created_by_name(self, obj):
+        """Get the full name of the employee who created this status."""
+        if not obj.created_by:
+            return None
+        return f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
+
+    def get_created_by_function(self, obj):
+        """Get the current function/role of the employee who created this status."""
+        if not obj.created_by:
+            return None
+
+        from django.utils import timezone
+        from apps.employees.models import EmployeeCareer
+
+        # Get the most recent function assignment for this employee
+        today = timezone.now().date()
+        current_function = (
+            EmployeeCareer.all_objects
+            .filter(
+                employee=obj.created_by,
+                start_date__lte=today
+            )
+            .order_by("-start_date", "-id")
+            .select_related("function")
+            .first()
+        )
+
+        if current_function and current_function.function:
+            return current_function.function.name
+
+        return None
 
     def get_term(self, obj):
         """

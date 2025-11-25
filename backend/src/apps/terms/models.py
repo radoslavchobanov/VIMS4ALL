@@ -121,3 +121,68 @@ class TermTransition(models.Model):
         one_week_after_end = self.term.end_date + timedelta(days=7)
 
         return self.term.end_date <= today <= one_week_after_end
+
+
+class LowTermCountAlert(models.Model):
+    """
+    Tracks when low term count alerts were sent to prevent spamming.
+    An alert is sent weekly when only 1 future term is left.
+    """
+
+    institute = models.OneToOneField(
+        "institutes.Institute",
+        on_delete=models.CASCADE,
+        related_name="low_term_alert",
+        help_text="The institute this alert tracking belongs to",
+    )
+
+    last_alert_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the last low term count alert was sent",
+    )
+
+    future_terms_count_at_last_alert = models.IntegerField(
+        default=0,
+        help_text="Number of future terms when last alert was sent",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "terms_low_term_alert"
+        indexes = [
+            models.Index(
+                fields=["institute", "last_alert_sent_at"],
+                name="term_alert_inst_sent_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Low Term Alert for {self.institute.name}"
+
+    def should_send_alert(self, future_terms_count: int) -> bool:
+        """
+        Check if an alert should be sent based on:
+        1. Only 1 future term remaining
+        2. At least 7 days since last alert OR terms were added and now low again
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Only alert when exactly 1 future term
+        if future_terms_count != 1:
+            # If terms were added (count increased), reset tracking
+            if future_terms_count > self.future_terms_count_at_last_alert:
+                self.future_terms_count_at_last_alert = future_terms_count
+                self.save(update_fields=["future_terms_count_at_last_alert", "updated_at"])
+            return False
+
+        # If never sent an alert before, send it
+        if not self.last_alert_sent_at:
+            return True
+
+        # Check if at least 7 days have passed since last alert
+        days_since_last_alert = (timezone.now() - self.last_alert_sent_at).days
+        return days_since_last_alert >= 7

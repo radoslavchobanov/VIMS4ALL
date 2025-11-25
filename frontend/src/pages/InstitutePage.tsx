@@ -48,34 +48,55 @@ const EXCLUDE_KEYS = new Set([
   "created_at",
   "updated_at",
   "logo_key",
+  "taxflag", // Remove tax flag field
 ]);
 
 const LABELS: Record<string, string> = {
   name: "Name",
+  short_name: "Short Name",
   abbr_name: "Abbreviation",
+  business_year_start: "Business Year Start",
+  business_year_end: "Business Year End",
   email: "Email",
+  phone: "Phone",
   phone_number: "Phone",
   website: "Website",
   address: "Address",
+  post_office_box: "P.O. Box",
   district: "District",
   county: "County",
+  sub_county: "Sub-county",
   sub_county_division: "Sub-county / Division",
   parish: "Parish",
   cell_village: "Cell / Village",
+  registration_no: "Registration No.",
+  inst_nssf_no: "Inst. NSSF Nr.",
+  inst_paye_no: "Inst. PAYE Nr.",
+  directions_and_comments: "Directions and Comments",
 };
 
 const FIELD_ORDER = [
   "name",
+  "short_name",
   "abbr_name",
-  "email",
+  "business_year_start",
+  "business_year_end",
+  "post_office_box",
+  "phone",
   "phone_number",
+  "email",
   "website",
   "address",
   "district",
   "county",
+  "sub_county",
   "sub_county_division",
   "parish",
   "cell_village",
+  "registration_no",
+  "inst_nssf_no",
+  "inst_paye_no",
+  "directions_and_comments",
 ];
 
 function toTitle(s: string) {
@@ -449,21 +470,100 @@ export default function InstitutePage() {
                   gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
                 }}
               >
-                {keys.map((k) => (
-                  <TextField
-                    key={k}
-                    label={LABELS[k] ?? toTitle(k)}
-                    type={inputTypeFor(k, form[k])}
-                    value={form[k] ?? ""}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, [k]: e.target.value }))
-                    }
-                    InputLabelProps={{
-                      shrink:
-                        inputTypeFor(k, form[k]) === "date" ? true : undefined,
-                    }}
-                  />
-                ))}
+                {keys.map((k) => {
+                  // Special handling for business_year_start
+                  if (k === "business_year_start") {
+                    return (
+                      <TextField
+                        key={k}
+                        label={LABELS[k] ?? toTitle(k)}
+                        type="date"
+                        value={form[k] ?? ""}
+                        onChange={(e) => {
+                          const start = e.target.value;
+                          // Auto-calculate end date as start + 1 year - 1 day
+                          let end = "";
+                          if (start) {
+                            const startDate = new Date(start + "T00:00:00");
+                            if (!Number.isNaN(startDate.getTime())) {
+                              const endDate = new Date(startDate);
+                              endDate.setFullYear(endDate.getFullYear() + 1);
+                              endDate.setDate(endDate.getDate() - 1);
+                              end = endDate.toISOString().split("T")[0];
+                            }
+                          }
+                          setForm((prev) => ({
+                            ...prev,
+                            business_year_start: start,
+                            business_year_end: end,
+                          }));
+                        }}
+                        InputLabelProps={{ shrink: true }}
+                        required
+                      />
+                    );
+                  }
+
+                  // Special handling for business_year_end (read-only, auto-calculated)
+                  if (k === "business_year_end") {
+                    return (
+                      <TextField
+                        key={k}
+                        label={LABELS[k] ?? toTitle(k)}
+                        type="date"
+                        value={form[k] ?? ""}
+                        InputLabelProps={{ shrink: true }}
+                        InputProps={{
+                          readOnly: true,
+                          sx: {
+                            backgroundColor: "action.hover",
+                            "& input": {
+                              cursor: "default",
+                            },
+                          },
+                        }}
+                        helperText="Auto-calculated (start + 1 year - 1 day)"
+                      />
+                    );
+                  }
+
+                  // Special handling for multi-line fields
+                  if (k === "directions_and_comments" || k === "address") {
+                    return (
+                      <TextField
+                        key={k}
+                        label={LABELS[k] ?? toTitle(k)}
+                        type={inputTypeFor(k, form[k])}
+                        value={form[k] ?? ""}
+                        onChange={(e) =>
+                          setForm((prev) => ({ ...prev, [k]: e.target.value }))
+                        }
+                        multiline
+                        minRows={3}
+                        sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}
+                      />
+                    );
+                  }
+
+                  // Default rendering
+                  return (
+                    <TextField
+                      key={k}
+                      label={LABELS[k] ?? toTitle(k)}
+                      type={inputTypeFor(k, form[k])}
+                      value={form[k] ?? ""}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, [k]: e.target.value }))
+                      }
+                      InputLabelProps={{
+                        shrink:
+                          inputTypeFor(k, form[k]) === "date"
+                            ? true
+                            : undefined,
+                      }}
+                    />
+                  );
+                })}
               </Box>
             </Box>
           )}

@@ -207,6 +207,16 @@ class StudentStatus(InstituteScopedModel):
     note = models.TextField(blank=True)
     effective_at = models.DateTimeField(default=timezone.now)
 
+    # Track who created this status change
+    created_by = models.ForeignKey(
+        "employees.Employee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_student_statuses",
+        help_text="Employee who created this status change"
+    )
+
     class Meta:
         ordering = ["-effective_at", "-id"]
         indexes = [

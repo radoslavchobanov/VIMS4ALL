@@ -9,6 +9,7 @@ import {
   Typography,
   Alert,
 } from "@mui/material";
+import { useErrorNotification } from "../contexts/ErrorNotificationContext";
 
 type Updater<T> = (patch: Partial<T> | ((prev: T) => T)) => void;
 
@@ -29,6 +30,7 @@ export type EntityFormDialogProps<TWrite, TInitial> = {
   submitLabel?: string;
   cancelLabel?: string;
   maxWidth?: "sm" | "md" | "lg";
+  hideSubmitButton?: boolean; // Hide the submit button (useful for tabs that save independently)
 };
 
 export function EntityFormDialog<TWrite extends Record<string, any>, TInitial>({
@@ -48,7 +50,9 @@ export function EntityFormDialog<TWrite extends Record<string, any>, TInitial>({
   submitLabel,
   cancelLabel,
   maxWidth = "md",
+  hideSubmitButton = false,
 }: EntityFormDialogProps<TWrite, TInitial>) {
+  const { clearError } = useErrorNotification();
   const [form, setForm] = useState<TWrite>(emptyFactory());
   const [submitting, setSubmitting] = useState(false);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
@@ -74,10 +78,14 @@ export function EntityFormDialog<TWrite extends Record<string, any>, TInitial>({
     );
   };
 
-  const handleDialogClose = () => onClose(); // do NOT reset state here
+  const handleDialogClose = () => {
+    clearError(); // Clear global error notification
+    onClose();
+  };
 
   const handleCancel = () => {
     setForm(emptyFactory()); // explicit cancel resets
+    clearError(); // Clear global error notification
     onClose();
   };
 
@@ -214,9 +222,11 @@ export function EntityFormDialog<TWrite extends Record<string, any>, TInitial>({
           <Button onClick={handleCancel} disabled={submitting}>
             {cancelLabel ?? "Cancel"}
           </Button>
-          <Button type="submit" variant="contained" disabled={submitting}>
-            {submitLabel ?? (mode === "create" ? "Create" : "Save Changes")}
-          </Button>
+          {!hideSubmitButton && (
+            <Button type="submit" variant="contained" disabled={submitting}>
+              {submitLabel ?? (mode === "create" ? "Create" : "Save Changes")}
+            </Button>
+          )}
         </DialogActions>
       </Box>
     </Dialog>
