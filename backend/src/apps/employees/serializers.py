@@ -285,6 +285,7 @@ class EmployeeListSerializer(serializers.ModelSerializer):
             "current_function",
             "have_system_account",
             "photo_url",
+            "exit_date",
         ]
 
     def get_current_function(self, obj):

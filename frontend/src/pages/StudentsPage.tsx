@@ -123,19 +123,30 @@ export default function StudentsPage() {
   const [currentTerm, setCurrentTerm] = useState<AcademicTermRead | null>(null);
   const [movingStudents, setMovingStudents] = useState(false);
 
+  // Show ex-students toggle
+  const [showExStudents, setShowExStudents] = useState(false);
+
   async function load() {
     setLoading(true);
     try {
+      const today = new Date().toISOString().split("T")[0];
       const r = await api.get<StudentRead[] | Page<StudentRead>>(
         STUDENTS_ENDPOINT,
         {
-          params: { page_size: 50 },
+          params: { page_size: 1000 },
         }
       );
       const listData = Array.isArray(r.data) ? r.data : r.data.results ?? [];
-      setList(listData);
+
+      // Filter based on showExStudents flag
+      const filteredData = listData.filter((s: any) => {
+        const hasExitDate = s.exit_date && s.exit_date <= today;
+        return showExStudents ? hasExitDate : !hasExitDate;
+      });
+
+      setList(filteredData);
       setRows(
-        listData.map((s: any) => ({
+        filteredData.map((s: any) => ({
           spin: s.spin,
           given_name: s.first_name,
           family_name: s.last_name,
@@ -152,7 +163,7 @@ export default function StudentsPage() {
   useEffect(() => {
     load();
     loadCurrentTerm();
-  }, []);
+  }, [showExStudents]);
 
   async function loadCurrentTerm() {
     try {
@@ -259,7 +270,16 @@ export default function StudentsPage() {
             </Typography>
           )}
         </Box>
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={showExStudents}
+                onChange={(_e: any, checked: boolean) => setShowExStudents(checked)}
+              />
+            }
+            label="Show Ex-Students"
+          />
           {canMoveStudents && canExecuteMove && (
             <Button
               variant="outlined"

@@ -16,6 +16,8 @@ import {
   DialogActions,
   IconButton,
   CircularProgress,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -115,17 +117,28 @@ export default function EmployeesPage() {
     have_system_account: boolean;
   } | null>(null);
 
+  // Show ex-employees toggle
+  const [showExEmployees, setShowExEmployees] = useState(false);
+
   async function load() {
     setLoading(true);
     try {
+      const today = new Date().toISOString().split("T")[0];
       const r = await api.get<EmployeeRead[] | Page<EmployeeRead>>(
         EMPLOYEES_ENDPOINT,
-        { params: { page_size: 50 } }
+        { params: { page_size: 1000 } }
       );
       const listData = Array.isArray(r.data) ? r.data : r.data.results ?? [];
-      setList(listData);
+
+      // Filter based on showExEmployees flag
+      const filteredData = listData.filter((e: any) => {
+        const hasExitDate = e.exit_date && e.exit_date <= today;
+        return showExEmployees ? hasExitDate : !hasExitDate;
+      });
+
+      setList(filteredData);
       setRows(
-        listData.map((e: any) => ({
+        filteredData.map((e: any) => ({
           id: e.id,
           epin: e.epin,
           given_name: e.first_name,
@@ -142,7 +155,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [showExEmployees]);
 
   function openCreate() {
     setInitial(undefined);
@@ -231,9 +244,20 @@ export default function EmployeesPage() {
         }}
       >
         <Typography variant="h6">Employees</Typography>
-        <Button variant="contained" onClick={openCreate}>
-          Create Employee
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={showExEmployees}
+                onChange={(_e: any, checked: boolean) => setShowExEmployees(checked)}
+              />
+            }
+            label="Show Ex-Employees"
+          />
+          <Button variant="contained" onClick={openCreate}>
+            Create Employee
+          </Button>
+        </Box>
       </Box>
 
       <div style={{ height: 600, width: "100%" }}>
