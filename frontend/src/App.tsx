@@ -69,7 +69,10 @@ function AppRoutes() {
         <Route
           path="/institute"
           element={
-            <Protected roles={["institute_admin"]}>
+            <Protected
+              roles={["institute_admin", "employee"]}
+              funcCodes={["director"]}
+            >
               <InstitutePage />
             </Protected>
           }
