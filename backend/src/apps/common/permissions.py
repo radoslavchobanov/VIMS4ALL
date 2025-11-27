@@ -18,6 +18,36 @@ class IsSuperuser(BasePermission):
         return bool(u and u.is_authenticated and u.is_superuser)
 
 
+def _is_director(user) -> bool:
+    """
+    Check if the user is an employee with the 'director' function code.
+    """
+    if not user or not user.is_authenticated:
+        return False
+
+    iid = getattr(user, "institute_id", None)
+    if not iid:
+        return False
+
+    # Get employee profile for this user
+    emp = (
+        Employee.all_objects.filter(
+            system_user_id=user.id, institute_id=iid
+        )
+        .only("id")
+        .first()
+    )
+    if not emp:
+        return False
+
+    # Check if they have an open director career
+    return EmployeeCareer.all_objects.filter(
+        institute_id=iid,
+        employee_id=emp.id,
+        function__code="director",
+    ).exists()
+
+
 class IsSuperuserOrInstituteAdminOfSameInstitute(BasePermission):
     """
     Superuser: full access.
@@ -35,6 +65,33 @@ class IsSuperuserOrInstituteAdminOfSameInstitute(BasePermission):
         if u.is_superuser:
             return True
         return _is_institute_admin(u) and getattr(u, "institute_id", None) == obj.id
+
+
+class IsSuperuserOrInstituteAdminOrDirectorOfSameInstitute(BasePermission):
+    """
+    Superuser: full access.
+    Institute admin: only to their own Institute object (obj.id == user.institute_id).
+    Director: only to their own Institute object (obj.id == user.institute_id).
+    """
+
+    def has_permission(self, request, view):
+        u = request.user
+        return bool(
+            u and u.is_authenticated and (u.is_superuser or _is_institute_admin(u) or _is_director(u))
+        )
+
+    def has_object_permission(self, request, view, obj):
+        u = request.user
+        if u.is_superuser:
+            return True
+
+        # Check if user belongs to the same institute
+        user_institute_id = getattr(u, "institute_id", None)
+        if user_institute_id != obj.id:
+            return False
+
+        # Allow institute admins or directors
+        return _is_institute_admin(u) or _is_director(u)
 
 
 class HasInstitute(BasePermission):

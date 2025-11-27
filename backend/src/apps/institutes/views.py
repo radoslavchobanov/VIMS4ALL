@@ -8,7 +8,7 @@ from django.core.files.storage import default_storage
 
 from apps.common.permissions import (
     IsSuperuser,
-    IsSuperuserOrInstituteAdminOfSameInstitute,
+    IsSuperuserOrInstituteAdminOrDirectorOfSameInstitute,
 )
 from .models import Institute
 from .serializers import (
@@ -39,9 +39,7 @@ class InstituteAdminViewSet(viewsets.ModelViewSet):
         methods=["post"],
         url_path="logo",
         parser_classes=[MultiPartParser, FormParser],
-        permission_classes=[
-            IsSuperuserOrInstituteAdminOfSameInstitute
-        ],  # 👈 override here
+        permission_classes=[IsSuperuserOrInstituteAdminOrDirectorOfSameInstitute],
     )
     def upload_logo(self, request, pk=None):
         institute = self.get_object()  # object-level permission will run here
@@ -83,14 +81,14 @@ class InstituteViewSet(
 
     queryset = Institute.objects.all()
     serializer_class = InstituteReadSerializer
-    permission_classes = [IsSuperuserOrInstituteAdminOfSameInstitute]
+    permission_classes = [IsSuperuserOrInstituteAdminOrDirectorOfSameInstitute]
 
     @action(
         detail=True,
         methods=["post"],
         url_path="logo",
         parser_classes=[MultiPartParser, FormParser],
-        permission_classes=[IsSuperuserOrInstituteAdminOfSameInstitute],
+        permission_classes=[IsSuperuserOrInstituteAdminOrDirectorOfSameInstitute],
     )
     def logo(self, request, pk=None):
         inst: Institute = self.get_object()
