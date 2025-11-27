@@ -41,7 +41,8 @@ const MENU: MenuItem[] = [
   {
     label: "Institute",
     to: "/institute",
-    roles: ["institute_admin"],
+    roles: ["institute_admin", "employee"],
+    funcCodes: ["director"],
   },
   {
     label: "Students",
