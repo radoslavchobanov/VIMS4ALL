@@ -1,2 +1,2 @@
 # CampusBase
-foundational system for campus operations.
+foundational system for campus operations
